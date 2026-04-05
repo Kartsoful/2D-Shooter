@@ -26,15 +26,12 @@ let keys = {};
 let mouse = { x: 0, y: 0 };
 let mouseDown = false;
 let lastShot = 0;
-const shootCooldown = 150;   // ms
+const shootCooldown = 150;
 
 // Input
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
-document.addEventListener("mousemove", e => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
-});
+document.addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 document.addEventListener("mousedown", () => mouseDown = true);
 document.addEventListener("mouseup", () => mouseDown = false);
 
@@ -42,10 +39,9 @@ document.addEventListener("mouseup", () => mouseDown = false);
 document.addEventListener("wheel", (e) => {
     let nextIndex = (weaponIndex + (e.deltaY > 0 ? 1 : -1) + weapons.length) % weapons.length;
     let nextWeapon = weapons[nextIndex];
-
-    if (nextWeapon === "explosive" && explosiveAmmo <= 0) return;
-    if (nextWeapon === "piercing" && piercingAmmo <= 0) return;
-
+    if ((nextWeapon === "explosive" && explosiveAmmo <= 0) || 
+        (nextWeapon === "piercing" && piercingAmmo <= 0)) return;
+    
     weaponIndex = nextIndex;
     currentWeapon = nextWeapon;
 });
@@ -54,15 +50,16 @@ document.addEventListener("wheel", (e) => {
 function gameLoop() {
     if (state.gameOver) return;
 
-    // Update
-    updatePlayer(player, keys);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    updatePlayer(player, keys, canvas);
     updateBullets(bullets, canvas);
-    updateEnemies(enemies, player, bullets, enemyBullets, state);
+    updateEnemies(enemies, player, bullets, enemyBullets, state);  // korjattu parametrit
     updatePowerUps();
 
     updateWeaponLogic();
 
-    // Shooting
+    // Ampuminen hiiren pohjassa
     if (mouseDown && Date.now() - lastShot > shootCooldown) {
         const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo);
         explosiveAmmo = result.explosiveAmmo;
@@ -70,36 +67,19 @@ function gameLoop() {
         lastShot = Date.now();
     }
 
-    // Draw
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawPlayer(ctx, player);
     drawBullets(ctx, bullets);
     drawEnemies(ctx, enemies);
     drawPowerUps(ctx, powerUps);
-
-    updateUI();
+    drawUI();
 
     requestAnimationFrame(gameLoop);
 }
 
 // ====================== HELPERS ======================
 function updateWeaponLogic() {
-    if (currentWeapon === "explosive" && explosiveAmmo <= 0) {
-        currentWeapon = "normal";
-        weaponIndex = 0;
-    }
-    if (currentWeapon === "piercing" && piercingAmmo <= 0) {
-        currentWeapon = "normal";
-        weaponIndex = 0;
-    }
-}
-
-function updateUI() {
-    document.getElementById("score").textContent = state.score;
-    document.getElementById("health").textContent = Math.max(0, player.health);
-    document.getElementById("weapon").textContent = currentWeapon;
-    document.getElementById("explosive").textContent = explosiveAmmo;
-    document.getElementById("piercing").textContent = piercingAmmo;
+    if (currentWeapon === "explosive" && explosiveAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
+    if (currentWeapon === "piercing" && piercingAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
 }
 
 function updatePowerUps() {
@@ -123,40 +103,39 @@ function drawPowerUps(ctx, powerUps) {
     });
 }
 
-// Spawnit
-setInterval(() => {
-    if (!state.gameOver) spawnEnemy(canvas, enemies, state);
-}, 800);
+function drawUI() {
+    document.getElementById("score").textContent = state.score;
+    document.getElementById("health").textContent = Math.max(0, player.health || 100);
+    document.getElementById("weapon").textContent = currentWeapon;
+    document.getElementById("explosive").textContent = explosiveAmmo;
+    document.getElementById("piercing").textContent = piercingAmmo;
+}
 
-setInterval(() => {
-    if (!state.gameOver) {
-        powerUps.push({
-            x: Math.random() * (canvas.width - 50) + 25,
-            y: Math.random() * (canvas.height - 50) + 25,
-            size: 12,
-            type: Math.random() < 0.5 ? "piercing" : "explosive"
-        });
-    }
-}, 9000);
-
-// Start-painike
+// Start button
 document.getElementById("startBtn").addEventListener("click", () => {
     document.getElementById("startScreen").style.display = "none";
     gameLoop();
 });
 
 // Restart
-window.restart = function () {
-    player = createPlayer(canvas);
-    bullets = [];
-    enemies = [];
-    enemyBullets = [];
-    powerUps = [];
-    state = { score: 0, gameOver: false };
-    explosiveAmmo = 0;
-    piercingAmmo = 0;
-    currentWeapon = "normal";
-    weaponIndex = 0;
-    document.getElementById("gameOver").style.display = "none";
-    gameLoop();
+window.restart = function() {
+    // resettaa kaikki muuttujat...
+    location.reload();   // helpoin tapa toistaiseksi
 };
+
+// Power-up spawn
+setInterval(() => {
+    if (!state.gameOver) {
+        powerUps.push({
+            x: Math.random() * (canvas.width - 40) + 20,
+            y: Math.random() * (canvas.height - 40) + 20,
+            size: 12,
+            type: Math.random() < 0.5 ? "piercing" : "explosive"
+        });
+    }
+}, 8500);
+
+// Enemy spawn
+setInterval(() => {
+    if (!state.gameOver) spawnEnemy(canvas, enemies, state);
+}, 900);
