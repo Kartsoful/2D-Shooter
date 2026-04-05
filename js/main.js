@@ -19,6 +19,10 @@ let powerUps = [];
 let weaponType = "normal"; // normal | piercing | explosive
 let state = { score: 0, gameOver: false };
 let weaponIndex = 0;
+let normalAmmo = Infinity;        // normaali ammukset loputtomiin
+let explosiveAmmo = 0;
+let piercingAmmo = 0;
+let currentWeapon = "normal";     // "normal" | "explosive" | "piercing"
 
 // Input
 let keys = {};
@@ -26,24 +30,29 @@ let mouse = { x: 0, y: 0 };
 
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
-
 document.addEventListener("mousemove", e => {
   mouse.x = e.clientX;
   mouse.y = e.clientY;
 });
 
 document.addEventListener("click", () => {
-  if (!state.gameOver) shoot(player, mouse, bullets, weaponType);
+    if (!state.gameOver) {
+        const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo);
+        explosiveAmmo = result.explosiveAmmo;
+        piercingAmmo = result.piercingAmmo;
+    }
 });
 
 document.addEventListener("wheel", (e) => {
-  if (e.deltaY > 0) {
-    weaponIndex = (weaponIndex + 1) % weapons.length;
-  } else {
-    weaponIndex = (weaponIndex - 1 + weapons.length) % weapons.length;
-  }
+    let nextIndex = (weaponIndex + (e.deltaY > 0 ? 1 : -1) + weapons.length) % weapons.length;
+    let nextWeapon = weapons[nextIndex];
 
-  weaponType = weapons[weaponIndex];
+    // Tarkista onko ammuksia
+    if (nextWeapon === "explosive" && explosiveAmmo <= 0) return;
+    if (nextWeapon === "piercing" && piercingAmmo <= 0) return;
+
+    weaponIndex = nextIndex;
+    currentWeapon = nextWeapon;
 });
 
 // Game loop
@@ -56,9 +65,20 @@ function loop() {
 
     powerUps.forEach((p, i) => {
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
-             weaponType = p.type; powerUps.splice(i, 1);
+            const amount = Math.floor(Math.random() * 16) + 15; // 15–30 ammusta
+
+            if (p.type === "explosive") {
+                explosiveAmmo += amount;
+            } else {
+                piercingAmmo += amount;
             }
-        });
+
+            // Näytä lyhyt ilmoitus (vapaaehtoinen)
+            console.log(`+${amount} ${p.type} ammo`);
+
+            powerUps.splice(i, 1);
+        }
+    });
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
