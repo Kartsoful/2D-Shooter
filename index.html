@@ -1,27 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fi">
 <head>
   <meta charset="UTF-8">
-  <title>Shooter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Shooter</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <canvas id="game"></canvas>
 
-<canvas id="game"></canvas>
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <h1>2D SHOOTER</h1>
+    <button id="startBtn">START GAME</button>
+  </div>
 
-<div id="ui">
-  Score: <span id="score">0</span><br>
-  Health: <span id="health">100</span><br>
-  Weapon: <span id="weapon">normal</span><br>
-  Explosive: <span id="explosive">0</span><br>
-  Piercing: <span id="piercing">0</span>
-</div>
+  <!-- UI -->
+  <div id="ui">
+    Score: <span id="score">0</span><br>
+    Health: <span id="health">100</span><br>
+    Weapon: <span id="weapon">normal</span><br>
+    Explosive: <span id="explosive">0</span><br>
+    Piercing: <span id="piercing">0</span>
+  </div>
 
-<div id="gameOver">
-  <h1>Game Over</h1>
-  <button onclick="restart()">Restart</button>
-</div>
+  <!-- Game Over -->
+  <div id="gameOver">
+    <h2>GAME OVER</h2>
+    <p>Score: <span id="finalScore">0</span></p>
+    <button onclick="restart()">PLAY AGAIN</button>
+  </div>
 
-<script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
