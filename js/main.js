@@ -5,12 +5,12 @@ import { spawnEnemy, updateEnemies, drawEnemies } from "./enemies.js";
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+canvas.width = window.innerWidth * 0.98;   // pieni korjaus
+canvas.height = window.innerHeight * 0.98;
 
 const weapons = ["normal", "piercing", "explosive"];
 
-// State
+// State muuttujat
 let player = createPlayer(canvas);
 let bullets = [];
 let enemies = [];
@@ -26,7 +26,7 @@ let keys = {};
 let mouse = { x: 0, y: 0 };
 let mouseDown = false;
 let lastShot = 0;
-const shootCooldown = 150;
+const shootCooldown = 120;
 
 // Input
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
