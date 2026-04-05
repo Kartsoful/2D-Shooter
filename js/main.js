@@ -69,7 +69,7 @@ function gameLoop() {
 
     drawPlayer(ctx, player);
     drawBullets(ctx, bullets);
-    drawEnemies(ctx, enemies);
+    drawEnemies(ctx, enemies, player);
     drawPowerUps(ctx, powerUps);
     drawUI();
 
