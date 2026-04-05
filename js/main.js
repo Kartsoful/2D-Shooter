@@ -10,32 +10,23 @@ canvas.height = window.innerHeight * 0.98;
 
 const weapons = ["normal", "piercing", "explosive"];
 
-// Game State
-let player = createPlayer(canvas);
-let bullets = [];
-let enemies = [];
-let enemyBullets = [];
-let powerUps = [];
-let state = { score: 0, gameOver: false };
-
+// Game variables
+let player, bullets, enemies, enemyBullets, powerUps, state;
 let weaponIndex = 0;
 let explosiveAmmo = 0;
 let piercingAmmo = 0;
 let currentWeapon = "normal";
-
-let keys = {};
-let mouse = { x: 0, y: 0 };
-let mouseDown = false;
+let keys = {}, mouse = { x: 0, y: 0 }, mouseDown = false;
 let lastShot = 0;
 const shootCooldown = 120;
+let gameStarted = false;
+let difficulty = 1;        // Kasvaa ajan myötä
+let gameTime = 0;
 
 // ==================== INPUT ====================
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
-document.addEventListener("mousemove", e => {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-});
+document.addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 document.addEventListener("mousedown", () => mouseDown = true);
 document.addEventListener("mouseup", () => mouseDown = false);
 
@@ -45,26 +36,26 @@ document.addEventListener("wheel", (e) => {
     let nextWeapon = weapons[nextIndex];
     if ((nextWeapon === "explosive" && explosiveAmmo <= 0) || 
         (nextWeapon === "piercing" && piercingAmmo <= 0)) return;
-    
     weaponIndex = nextIndex;
     currentWeapon = nextWeapon;
 });
 
 // ==================== GAME LOOP ====================
 function gameLoop() {
-    if (state.gameOver) return;
+    if (!gameStarted || state.gameOver) return;
+
+    gameTime++;
+    if (gameTime % 600 === 0) difficulty += 0.15;   // vaikeutuu ~10 sekunnin välein
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Updates
     updatePlayer(player, keys, canvas);
     updateBullets(bullets, canvas);
-    updateEnemies(enemies, player, bullets, enemyBullets, state);   // viholliset ampuvat täällä
-    updateEnemyBullets();
+    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty);
+
     updatePowerUps();
     updateWeaponLogic();
 
-    // Pelaajan ampuminen
     if (mouseDown && Date.now() - lastShot > shootCooldown) {
         const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo);
         explosiveAmmo = result.explosiveAmmo;
@@ -72,18 +63,18 @@ function gameLoop() {
         lastShot = Date.now();
     }
 
-    // Check if player died
     if (player.health <= 0) {
         triggerGameOver();
         return;
     }
 
-    // Draw everything
     drawPlayer(ctx, player);
     drawBullets(ctx, bullets);
     drawEnemies(ctx, enemies, player);
     drawPowerUps(ctx, powerUps);
     drawEnemyBullets(ctx, enemyBullets);
+    updateEnemyBullets();
+
     drawUI();
 
     requestAnimationFrame(gameLoop);
@@ -158,24 +149,46 @@ function drawEnemyBullets(ctx, enemyBullets) {
     });
 }
 
+function resetGame() {
+    player = createPlayer(canvas);
+    bullets = [];
+    enemies = [];
+    enemyBullets = [];
+    powerUps = [];
+    state = { score: 0, gameOver: false };
+    weaponIndex = 0;
+    explosiveAmmo = 0;
+    piercingAmmo = 0;
+    currentWeapon = "normal";
+    difficulty = 1;
+    gameTime = 0;
+}
+
 // Start button
 document.getElementById("startBtn").addEventListener("click", () => {
+    resetGame();
     document.getElementById("startScreen").style.display = "none";
+    gameStarted = true;
     gameLoop();
 });
 
 // Restart
 window.restart = function() {
-    location.reload();
+    document.getElementById("gameOver").style.display = "none";
+    resetGame();
+    gameStarted = true;
+    gameLoop();
 };
 
 // Spawnaus
 setInterval(() => {
-    if (!state.gameOver) spawnEnemy(canvas, enemies, state);
-}, 900);
+    if (gameStarted && !state.gameOver) {
+        spawnEnemy(canvas, enemies, state, difficulty);
+    }
+}, 800);
 
 setInterval(() => {
-    if (!state.gameOver) {
+    if (gameStarted && !state.gameOver) {
         powerUps.push({
             x: Math.random() * (canvas.width - 40) + 20,
             y: Math.random() * (canvas.height - 40) + 20,

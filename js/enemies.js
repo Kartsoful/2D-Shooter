@@ -42,6 +42,7 @@ export function spawnEnemy(canvas, enemies, state) {
     }
 }
 
+
 export function updateEnemies(enemies, player, bullets, enemyBullets, state) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
