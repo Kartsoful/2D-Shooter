@@ -4,6 +4,8 @@ import { spawnEnemy, updateEnemies, drawEnemies } from "./enemies.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+const weapons = ["normal", "piercing", "explosive"];
+
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -13,7 +15,10 @@ let player = createPlayer(canvas);
 let bullets = [];
 let enemies = [];
 let enemyBullets = [];
+let powerUps = [];
+let weaponType = "normal"; // normal | piercing | explosive
 let state = { score: 0, gameOver: false };
+let weaponIndex = 0;
 
 // Input
 let keys = {};
@@ -28,7 +33,17 @@ document.addEventListener("mousemove", e => {
 });
 
 document.addEventListener("click", () => {
-  if (!state.gameOver) shoot(player, mouse, bullets);
+  if (!state.gameOver) shoot(player, mouse, bullets, weaponType);
+});
+
+document.addEventListener("wheel", (e) => {
+  if (e.deltaY > 0) {
+    weaponIndex = (weaponIndex + 1) % weapons.length;
+  } else {
+    weaponIndex = (weaponIndex - 1 + weapons.length) % weapons.length;
+  }
+
+  weaponType = weapons[weaponIndex];
 });
 
 // Game loop
@@ -39,15 +54,23 @@ function loop() {
     updateEnemyBullets(); // ✅ TÄNNE
     updateEnemies(enemies, player, bullets, enemyBullets, state);
 
+    powerUps.forEach((p, i) => {
+        if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
+             weaponType = p.type; powerUps.splice(i, 1);
+            }
+        });
+    
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawPlayer(ctx, player);
     drawBullets(ctx, bullets);
     drawEnemyBullets(ctx, enemyBullets); // ✅ TÄNNE
     drawEnemies(ctx, enemies, player);
+    drawPowerUps(ctx, powerUps);
 
     document.getElementById("score").textContent = state.score;
     document.getElementById("health").textContent = player.health;
+    document.getElementById("weapon").textContent = weaponType;
 
     requestAnimationFrame(loop);
   } else {
@@ -103,6 +126,26 @@ function drawEnemyBullets(ctx, enemyBullets) {
   enemyBullets.forEach(b => {
     ctx.beginPath();
     ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function spawnPowerUp() {
+  powerUps.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: 10,
+    type: Math.random() < 0.5 ? "piercing" : "explosive"
+  });
+}
+
+setInterval(spawnPowerUp, 8000);
+
+function drawPowerUps(ctx, powerUps) {
+  powerUps.forEach(p => {
+    ctx.fillStyle = "cyan";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     ctx.fill();
   });
 }

@@ -1,4 +1,4 @@
-export function shoot(player, mouse, bullets) {
+export function shoot(player, mouse, bullets, weaponType) {
   const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
 
   bullets.push({
@@ -6,7 +6,8 @@ export function shoot(player, mouse, bullets) {
     y: player.y,
     dx: Math.cos(angle) * 6,
     dy: Math.sin(angle) * 6,
-    size: 5
+    size: 5,
+    type: weaponType
   });
 }
 

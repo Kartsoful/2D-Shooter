@@ -48,16 +48,17 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state) {
 
     const angle = Math.atan2(player.y - e.y, player.x - e.x);
 
-    // Liike
-    if (e.type === "normal") {
+    // 🔹 DEFAULT LIIKE (normal + tank)
+    if (e.type === "normal" || e.type === "tank") {
       e.x += Math.cos(angle) * e.speed;
       e.y += Math.sin(angle) * e.speed;
     }
 
+    // 🔹 SHOOTER LOGIIKKA
     if (e.type === "shooter") {
-      // pysyy hieman kauempana
       const dist = Math.hypot(player.x - e.x, player.y - e.y);
 
+      // pysyy etäällä
       if (dist > 200) {
         e.x += Math.cos(angle) * e.speed;
         e.y += Math.sin(angle) * e.speed;
@@ -65,6 +66,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state) {
 
       // ampuu
       e.shootCooldown--;
+
       if (e.shootCooldown <= 0) {
         enemyBullets.push({
           x: e.x,
@@ -73,37 +75,60 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state) {
           dy: Math.sin(angle) * 4,
           size: 5
         });
-        e.shootCooldown = 60; // ~1 sekunti
+
+        e.shootCooldown = 60;
       }
     }
 
-    // Pelaajaan osuminen
+    // 🔹 OSUMA PELAAJAAN
     if (Math.hypot(player.x - e.x, player.y - e.y) < player.size + e.size) {
-      player.health -= 1;
-      if (player.health <= 0) state.gameOver = true;
+      player.health -= (e.type === "tank" ? 2 : 1);
+
+      if (player.health <= 0) {
+        state.gameOver = true;
+      }
     }
 
-    // Bullet collision
+    // 🔹 BULLET COLLISION
     for (let j = bullets.length - 1; j >= 0; j--) {
       const b = bullets[j];
 
-        if (Math.hypot(b.x - e.x, b.y - e.y) < b.size + e.size) {
-        bullets.splice(j, 1);
+      if (Math.hypot(b.x - e.x, b.y - e.y) < b.size + e.size) {
+        if (b.type === "piercing") {
+            // ei poisteta bulletia
+            } else {
+            bullets.splice(j, 1);
+        }
 
+        if (b.type === "explosive") {
+            const radius = 50;
+
+            enemies.forEach((enemy, k) => {
+                const dist = Math.hypot(b.x - enemy.x, b.y - enemy.y);
+
+                if (dist < radius) {
+                enemy.hp ? enemy.hp-- : enemies.splice(k, 1);
+                }
+            });
+
+            bullets.splice(j, 1);
+        }
+
+        // tank ottaa damagea
         if (e.type === "tank") {
-            e.hp--;
+          e.hp--;
 
-            if (e.hp <= 0) {
+          if (e.hp <= 0) {
             enemies.splice(i, 1);
-            state.score += 3; // tankista enemmän pisteitä
-            }
+            state.score += 3;
+          }
         } else {
-            enemies.splice(i, 1);
-            state.score++;
+          enemies.splice(i, 1);
+          state.score++;
         }
 
         break;
-        }
+      }
     }
   }
 }
