@@ -22,6 +22,7 @@ let weaponIndex = 0;
 let normalAmmo = Infinity;        // normaali ammukset loputtomiin
 let explosiveAmmo = 0;
 let piercingAmmo = 0;
+let spawnRate = 1000;
 let currentWeapon = "normal";     // "normal" | "explosive" | "piercing"
 
 // Input
@@ -62,6 +63,7 @@ function loop() {
     updateBullets(bullets, canvas);
     updateEnemyBullets(); // ✅ TÄNNE
     updateEnemies(enemies, player, bullets, enemyBullets, state);
+    updateWeapon();
 
     powerUps.forEach((p, i) => {
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
@@ -90,7 +92,9 @@ function loop() {
 
     document.getElementById("score").textContent = state.score;
     document.getElementById("health").textContent = player.health;
-    document.getElementById("weapon").textContent = weaponType;
+    document.getElementById("explosive").textContent = explosiveAmmo;
+    document.getElementById("piercing").textContent = piercingAmmo;
+    document.getElementById("weapon").textContent = currentWeapon;
 
     requestAnimationFrame(loop);
   } else {
@@ -111,13 +115,12 @@ window.restart = function () {
   loop();
 };
 
-// Spawn loop
-let spawnRate = 1000;
+
 
 function spawnLoop() {
   if (!state.gameOver) {
     spawnEnemy(canvas, enemies, state);
-    spawnRate *= 0.98; // nopeutuu
+    spawnRate *= 0.99; // nopeutuu
     setTimeout(spawnLoop, spawnRate);
   }
 }
@@ -168,6 +171,17 @@ function drawPowerUps(ctx, powerUps) {
     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     ctx.fill();
   });
+}
+
+function updateWeapon() {
+    if (currentWeapon === "explosive" && explosiveAmmo <= 0) {
+        currentWeapon = "normal";
+        weaponIndex = weapons.indexOf("normal");
+    }
+    if (currentWeapon === "piercing" && piercingAmmo <= 0) {
+        currentWeapon = "normal";
+        weaponIndex = weapons.indexOf("normal");
+    }
 }
 
 spawnLoop();
