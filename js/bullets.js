@@ -2,14 +2,14 @@ export function shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, pier
     const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
     
     let type = "normal";
-    let shouldConsume = false;
+    let consume = false;
 
     if (currentWeapon === "explosive" && explosiveAmmo > 0) {
         type = "explosive";
-        shouldConsume = true;
+        consume = true;
     } else if (currentWeapon === "piercing" && piercingAmmo > 0) {
         type = "piercing";
-        shouldConsume = true;
+        consume = true;
     }
 
     bullets.push({
@@ -17,17 +17,17 @@ export function shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, pier
         y: player.y,
         dx: Math.cos(angle) * 7,
         dy: Math.sin(angle) * 7,
-        size: 5,
-        type: type
+        size: type === "normal" ? 5 : 7,
+        type: type,
+        color: type === "explosive" ? "#ff8800" : type === "piercing" ? "#00ccff" : "#ffff00"
     });
 
-    // Vähennä ammus
-    if (shouldConsume) {
+    if (consume) {
         if (type === "explosive") explosiveAmmo--;
-        else if (type === "piercing") piercingAmmo--;
+        else piercingAmmo--;
     }
 
-    return { explosiveAmmo, piercingAmmo }; // palautetaan uudet määrät
+    return { explosiveAmmo, piercingAmmo };
 }
 
 export function updateBullets(bullets, canvas) {

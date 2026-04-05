@@ -57,49 +57,36 @@ document.addEventListener("wheel", (e) => {
 });
 
 // Game loop
-function loop() {
-  if (!state.gameOver) {
-    updatePlayer(player, keys);
-    updateBullets(bullets, canvas);
-    updateEnemyBullets(); // ✅ TÄNNE
-    updateEnemies(enemies, player, bullets, enemyBullets, state);
-    updateWeapon();
+function gameLoop() {
+    if (state.gameOver) return;
 
-    powerUps.forEach((p, i) => {
-        if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
-            const amount = Math.floor(Math.random() * 16) + 15; // 15–30 ammusta
-
-            if (p.type === "explosive") {
-                explosiveAmmo += amount;
-            } else {
-                piercingAmmo += amount;
-            }
-
-            // Näytä lyhyt ilmoitus (vapaaehtoinen)
-            console.log(`+${amount} ${p.type} ammo`);
-
-            powerUps.splice(i, 1);
-        }
-    });
-    
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Päivitykset
+    updatePlayer(player, keys, canvas);
+    updateBullets(bullets, canvas);
+    updateEnemies(enemies, player, enemyBullets, canvas);
+    updatePowerUps(powerUps, player);
+
+    // === AMMO & WEAPON LOGIIKKA ===
+    updateWeaponLogic();
+
+    // Ampuminen (hiiri)
+    if (mouseDown && Date.now() - lastShot > shootCooldown) {
+        const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo);
+        explosiveAmmo = result.explosiveAmmo;
+        piercingAmmo = result.piercingAmmo;
+        lastShot = Date.now();
+    }
+
+    // Piirto
     drawPlayer(ctx, player);
     drawBullets(ctx, bullets);
-    drawEnemyBullets(ctx, enemyBullets); // ✅ TÄNNE
-    drawEnemies(ctx, enemies, player);
+    drawEnemies(ctx, enemies);
     drawPowerUps(ctx, powerUps);
+    drawUI();
 
-    document.getElementById("score").textContent = state.score;
-    document.getElementById("health").textContent = player.health;
-    document.getElementById("explosive").textContent = explosiveAmmo;
-    document.getElementById("piercing").textContent = piercingAmmo;
-    document.getElementById("weapon").textContent = currentWeapon;
-
-    requestAnimationFrame(loop);
-  } else {
-    document.getElementById("gameOver").style.display = "block";
-  }
+    requestAnimationFrame(gameLoop);
 }
 
 // Restart (global for button)
@@ -184,6 +171,32 @@ function updateWeapon() {
     }
 }
 
+// Automaattinen aseenvaihto kun ammukset loppuu
+function updateWeaponLogic() {
+    if (currentWeapon === "explosive" && explosiveAmmo <= 0) {
+        currentWeapon = "normal";
+        weaponIndex = 0;
+    }
+    if (currentWeapon === "piercing" && piercingAmmo <= 0) {
+        currentWeapon = "normal";
+        weaponIndex = 0;
+    }
+}
+
+// UI-päivitys
+function drawUI() {
+    document.getElementById("score").textContent = state.score;
+    document.getElementById("health").textContent = player.health;
+    document.getElementById("weapon").textContent = currentWeapon;
+    document.getElementById("explosive").textContent = explosiveAmmo;
+    document.getElementById("piercing").textContent = piercingAmmo;
+
+    // Värikoodaus
+    document.getElementById("weapon").style.color = 
+        currentWeapon === "explosive" ? "#ff4444" : 
+        currentWeapon === "piercing" ? "#44aaff" : "#ffffff";
+}
+
 spawnLoop();
 // Start
-loop();
+gameLoop();
