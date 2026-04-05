@@ -45,7 +45,9 @@ function gameLoop() {
     if (!gameStarted || state.gameOver) return;
 
     gameTime++;
-    if (gameTime % 600 === 0) difficulty += 0.15;   // vaikeutuu ~10 sekunnin välein
+    if (gameTime % 480 === 0) {        // vaikeutuu noin 8 sekunnin välein
+        difficulty += 0.2;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -162,6 +164,7 @@ function resetGame() {
     currentWeapon = "normal";
     difficulty = 1;
     gameTime = 0;
+    gameStarted = false;
 }
 
 // Start button
@@ -180,13 +183,14 @@ window.restart = function() {
     gameLoop();
 };
 
-// Spawnaus
+// Viholliset spawn (vaikeutuu ajan myötä)
 setInterval(() => {
     if (gameStarted && !state.gameOver) {
         spawnEnemy(canvas, enemies, state, difficulty);
     }
-}, 800);
+}, Math.max(400, 900 - difficulty * 40));   // spawnaa nopeammin kun vaikeutuu
 
+// Power-upit
 setInterval(() => {
     if (gameStarted && !state.gameOver) {
         powerUps.push({

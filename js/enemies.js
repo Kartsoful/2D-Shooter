@@ -1,43 +1,40 @@
 import { distance } from "./utils.js";
 
-export function spawnEnemy(canvas, enemies, state) {
-  const edge = Math.floor(Math.random() * 4);
-  let x, y;
+export function spawnEnemy(canvas, enemies, state, difficulty = 1) {
+    const edge = Math.floor(Math.random() * 4);
+    let x, y;
 
-  if (edge === 0) { x = 0; y = Math.random() * canvas.height; }
-  if (edge === 1) { x = canvas.width; y = Math.random() * canvas.height; }
-  if (edge === 2) { x = Math.random() * canvas.width; y = 0; }
-  if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height; }
+    if (edge === 0) { x = 0; y = Math.random() * canvas.height; }
+    if (edge === 1) { x = canvas.width; y = Math.random() * canvas.height; }
+    if (edge === 2) { x = Math.random() * canvas.width; y = 0; }
+    if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height; }
 
-  // 20% chance ranged enemy
-  const isShooter = Math.random() < 0.12;
-  const isTank = Math.random() < 0.1;
+    const isShooter = Math.random() < (0.12 + difficulty * 0.02);
+    const isTank = Math.random() < (0.1 + difficulty * 0.015);
   
     if (isShooter) {
         enemies.push({
-        x,
-        y,
-        size: 18,
-        speed: 0.8,
-        type: "shooter",
-        shootCooldown: 0
+            x, y,
+            size: 18,
+            speed: 0.8 + difficulty * 0.15,
+            type: "shooter",
+            shootCooldown: 0,
+            color: "#ff00ff"
         });
     } else if (isTank) {
-    enemies.push({
-        x,
-        y,
-        size: 20,
-        speed: 1,
-        type: "tank",
-        hp: Math.floor(Math.random() * 8) + 3 // 3–10
-    });
+        enemies.push({
+            x, y,
+            size: 22,
+            speed: 0.9 + difficulty * 0.1,
+            type: "tank",
+            hp: Math.floor(3 + difficulty * 2)
+        });
     } else {
         enemies.push({
-        x,
-        y,
-        size: 15,
-        speed: 1.5 + state.score * 0.004,
-        type: "normal"
+            x, y,
+            size: 15,
+            speed: 1.4 + difficulty * 0.25 + state.score * 0.003,
+            type: "normal"
         });
     }
 }
