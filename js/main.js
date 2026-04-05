@@ -5,18 +5,19 @@ import { spawnEnemy, updateEnemies, drawEnemies } from "./enemies.js";
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth * 0.98;   // pieni korjaus
+canvas.width = window.innerWidth * 0.98;
 canvas.height = window.innerHeight * 0.98;
 
 const weapons = ["normal", "piercing", "explosive"];
 
-// State muuttujat
+// Game State
 let player = createPlayer(canvas);
 let bullets = [];
 let enemies = [];
 let enemyBullets = [];
 let powerUps = [];
 let state = { score: 0, gameOver: false };
+
 let weaponIndex = 0;
 let explosiveAmmo = 0;
 let piercingAmmo = 0;
@@ -28,10 +29,13 @@ let mouseDown = false;
 let lastShot = 0;
 const shootCooldown = 120;
 
-// Input
+// ==================== INPUT ====================
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
-document.addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+document.addEventListener("mousemove", e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
 document.addEventListener("mousedown", () => mouseDown = true);
 document.addEventListener("mouseup", () => mouseDown = false);
 
@@ -46,20 +50,21 @@ document.addEventListener("wheel", (e) => {
     currentWeapon = nextWeapon;
 });
 
-// ====================== GAME LOOP ======================
+// ==================== GAME LOOP ====================
 function gameLoop() {
     if (state.gameOver) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Updates
     updatePlayer(player, keys, canvas);
     updateBullets(bullets, canvas);
-    updateEnemies(enemies, player, bullets, enemyBullets, state);  // korjattu parametrit
+    updateEnemies(enemies, player, bullets, enemyBullets, state);   // viholliset ampuvat täällä
+    updateEnemyBullets();
     updatePowerUps();
-
     updateWeaponLogic();
 
-    // Ampuminen hiiren pohjassa
+    // Pelaajan ampuminen
     if (mouseDown && Date.now() - lastShot > shootCooldown) {
         const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo);
         explosiveAmmo = result.explosiveAmmo;
@@ -67,16 +72,24 @@ function gameLoop() {
         lastShot = Date.now();
     }
 
+    // Check if player died
+    if (player.health <= 0) {
+        triggerGameOver();
+        return;
+    }
+
+    // Draw everything
     drawPlayer(ctx, player);
     drawBullets(ctx, bullets);
     drawEnemies(ctx, enemies, player);
     drawPowerUps(ctx, powerUps);
+    drawEnemyBullets(ctx, enemyBullets);
     drawUI();
 
     requestAnimationFrame(gameLoop);
 }
 
-// ====================== HELPERS ======================
+// ==================== HELPERS ====================
 function updateWeaponLogic() {
     if (currentWeapon === "explosive" && explosiveAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
     if (currentWeapon === "piercing" && piercingAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
@@ -111,6 +124,40 @@ function drawUI() {
     document.getElementById("piercing").textContent = piercingAmmo;
 }
 
+function triggerGameOver() {
+    state.gameOver = true;
+    document.getElementById("finalScore").textContent = state.score;
+    document.getElementById("gameOver").style.display = "flex";
+}
+
+function updateEnemyBullets() {
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+        const b = enemyBullets[i];
+        b.x += b.dx;
+        b.y += b.dy;
+
+        // Poista jos menee ruudun ulkopuolelle
+        if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+            enemyBullets.splice(i, 1);
+        }
+
+        // Osuma pelaajaan
+        if (Math.hypot(b.x - player.x, b.y - player.y) < player.size + b.size) {
+            player.health -= 1;
+            enemyBullets.splice(i, 1);
+        }
+    }
+}
+
+function drawEnemyBullets(ctx, enemyBullets) {
+    ctx.fillStyle = "#ff00ff";   // magenta, helppo erottaa
+    enemyBullets.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
 // Start button
 document.getElementById("startBtn").addEventListener("click", () => {
     document.getElementById("startScreen").style.display = "none";
@@ -119,11 +166,14 @@ document.getElementById("startBtn").addEventListener("click", () => {
 
 // Restart
 window.restart = function() {
-    // resettaa kaikki muuttujat...
-    location.reload();   // helpoin tapa toistaiseksi
+    location.reload();
 };
 
-// Power-up spawn
+// Spawnaus
+setInterval(() => {
+    if (!state.gameOver) spawnEnemy(canvas, enemies, state);
+}, 900);
+
 setInterval(() => {
     if (!state.gameOver) {
         powerUps.push({
@@ -134,8 +184,3 @@ setInterval(() => {
         });
     }
 }, 8500);
-
-// Enemy spawn
-setInterval(() => {
-    if (!state.gameOver) spawnEnemy(canvas, enemies, state);
-}, 900);
