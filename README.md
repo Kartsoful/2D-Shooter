@@ -1,14 +1,31 @@
-###
+# 2D Shooter Game
 
-This repositio contains a game what is almost fully done by AI. This is part of a Cloud services course, where is one task to do simple game with using AI.
+A simple browser-based 2D shooter built using AI tools.
 
-###
+## Features
+- Player movement (WASD)
+- Mouse aiming & shooting
+- Multiple enemy types
+- Boss fight
+- Dash ability
+- Weapon system
+- UI (health, score, abilities)
 
-In this project is tested ChatGPT, Grok, Copilot and Codex. Grok and ChatGPT (chat version) looks that them can't handle many files good but Copilot and Codex do this size of project almost without problems.
+## Run locally
+1. Install Live Server (VS Code extension)
+2. Open index.html
+3. Start Live Server
 
-###
+## Built with
+- HTML, CSS, JavaScript
+- AI-assisted development (ChatGPT, Copilot, Grok, Codex)
 
 Gameplay photo:
 ![Alt text](images/gameplay.jpg)
 
-For playing this game, you might start live server.
+## About
+
+This project was created as part of a Cloud Services course ("Pilvipalvelut").  
+The goal was to build a simple game using AI-assisted development tools.
+
+The game is largely generated and improved with the help of tools like ChatGPT, Copilot, Grok, and Codex.
