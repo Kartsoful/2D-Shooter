@@ -111,16 +111,20 @@ function drawPowerUps(ctx, powerUps) {
 
 function drawUI() {
     document.getElementById("score").textContent = Math.floor(state.score);
-    document.getElementById("health").textContent = Math.max(0, Math.floor(player.health || 100));
     
-    // Värikoodaus healthbarille (punainen kun matalalla)
     const healthEl = document.getElementById("health");
-    if (player.health < 30) {
-        healthEl.style.color = "#ff4444";
-    } else if (player.health < 60) {
-        healthEl.style.color = "#ffaa00";
+    const currentHealth = Math.max(0, Math.floor(player.health || 100));
+    
+    healthEl.textContent = currentHealth;
+
+    // Värikoodaus healthille
+    if (currentHealth <= 30) {
+        healthEl.style.color = "#ff2222";      // punainen
+        healthEl.style.fontWeight = "bold";
+    } else if (currentHealth <= 60) {
+        healthEl.style.color = "#ffaa00";      // oranssi
     } else {
-        healthEl.style.color = "#44ff44";
+        healthEl.style.color = "#44ff44";      // vihreä
     }
 
     document.getElementById("weapon").textContent = currentWeapon;

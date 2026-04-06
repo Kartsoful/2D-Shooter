@@ -1,43 +1,65 @@
 import { distance } from "./utils.js";
 
 export function spawnEnemy(canvas, enemies, state, difficulty = 1) {
+    // Valitaan satunnainen reuna, josta vihollinen spawnaa
     const edge = Math.floor(Math.random() * 4);
     let x, y;
 
-    if (edge === 0) { x = Math.random() * canvas.width; y = -20; }
-    else if (edge === 1) { x = canvas.width + 20; y = Math.random() * canvas.height; }
-    else if (edge === 2) { x = Math.random() * canvas.width; y = canvas.height + 20; }
-    else { x = -20; y = Math.random() * canvas.height; }
+    switch (edge) {
+        case 0:  // vasemmalta
+            x = -25;
+            y = Math.random() * canvas.height;
+            break;
+        case 1:  // oikealta
+            x = canvas.width + 25;
+            y = Math.random() * canvas.height;
+            break;
+        case 2:  // yläreunasta
+            x = Math.random() * canvas.width;
+            y = -25;
+            break;
+        case 3:  // alareunasta
+            x = Math.random() * canvas.width;
+            y = canvas.height + 25;
+            break;
+    }
 
     const rand = Math.random();
+
     let enemy;
 
-    if (rand < 0.08 + difficulty * 0.025) {           // Shooter
+    // Shooter (magenta)
+    if (rand < 0.10 + difficulty * 0.03) {
         enemy = {
-            x, y,
+            x: x,
+            y: y,
             size: 18,
-            speed: 1.8 + difficulty * 0.25,
+            speed: 1.6 + difficulty * 0.3,
             type: "shooter",
             shootCooldown: 0,
             color: "#ff00ff",
             health: 1
         };
-    } 
-    else if (rand < 0.16 + difficulty * 0.02) {       // Tank
+    }
+    // Tank (sininen, paljon hp)
+    else if (rand < 0.22 + difficulty * 0.025) {
         enemy = {
-            x, y,
+            x: x,
+            y: y,
             size: 24,
-            speed: 1.1 + difficulty * 0.12,
+            speed: 1.05 + difficulty * 0.13,
             type: "tank",
-            health: Math.floor(3 + difficulty * 1.8),
-            color: "#ff8800"
+            hp: Math.floor(5 + difficulty * 2.2),   // 5 - 12+ hp
+            color: "#4488ff"
         };
-    } 
-    else {                                            // Normaali vihollinen
+    }
+    // Normaali vihollinen (punainen)
+    else {
         enemy = {
-            x, y,
+            x: x,
+            y: y,
             size: 16,
-            speed: 2.2 + difficulty * 0.35,
+            speed: 2.1 + difficulty * 0.4,
             type: "normal",
             health: 1,
             color: "#ff4444"
@@ -117,65 +139,53 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
 }
 
 export function drawEnemies(ctx, enemies, player) {
-  enemies.forEach(e => {
+    enemies.forEach(e => {
 
-    // Värit tyypin mukaan
-    if (e.type === "shooter") {
-      ctx.fillStyle = "yellow";
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 2;
-    } else if (e.type === "tank") {
-      ctx.fillStyle = "blue";
-    } else {
-      ctx.fillStyle = "red";
-    }
+        // Värit tyypin mukaan
+        if (e.type === "shooter") {
+            ctx.fillStyle = "yellow";
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 2;
+        } else if (e.type === "tank") {
+            ctx.fillStyle = "blue";
+        } else {
+            ctx.fillStyle = "red";
+        }
 
-    // Piirrä vihollinen
-    ctx.beginPath();
-    ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-    ctx.fill();
+        // Piirrä vihollinen
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+        ctx.fill();
 
-    // Shooterille outline + tähtäyssuunta
-    if (e.type === "shooter") {
-      ctx.stroke();
+        if (e.type === "shooter") {
+            ctx.stroke();
 
-      const angle = Math.atan2(player.y - e.y, player.x - e.x);
-      const length = e.size + 10;
+            const angle = Math.atan2(player.y - e.y, player.x - e.x);
+            const length = e.size + 10;
+            ctx.beginPath();
+            ctx.moveTo(e.x, e.y);
+            ctx.lineTo(e.x + Math.cos(angle) * length, e.y + Math.sin(angle) * length);
+            ctx.stroke();
+        }
 
-      ctx.beginPath();
-      ctx.moveTo(e.x, e.y);
-      ctx.lineTo(
-        e.x + Math.cos(angle) * length,
-        e.y + Math.sin(angle) * length
-      );
-      ctx.stroke();
-    }
+        // === TANK HEALTHBAR (korjattu) ===
+        if (e.type === "tank" && e.hp !== undefined) {
+            const barWidth = 36;
+            const barHeight = 6;
+            const hpPercent = Math.max(0, e.hp / 12);   // max mahdollinen hp spawnissa
 
-    // Tankille HP bar
-    if (e.type === "tank") {
-      const barWidth = 30;
-      const barHeight = 4;
+            // Tausta (musta)
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(e.x - barWidth / 2, e.y - e.size - 14, barWidth, barHeight);
 
-      const maxHp = 10; // sama kuin spawnissa max
+            // HP palkki
+            ctx.fillStyle = e.hp > 6 ? "lime" : e.hp > 3 ? "orange" : "red";
+            ctx.fillRect(e.x - barWidth / 2, e.y - e.size - 14, barWidth * hpPercent, barHeight);
 
-      // tausta
-      ctx.fillStyle = "black";
-      ctx.fillRect(
-        e.x - barWidth / 2,
-        e.y - e.size - 10,
-        barWidth,
-        barHeight
-      );
-
-      // hp
-      ctx.fillStyle = "lime";
-      ctx.fillRect(
-        e.x - barWidth / 2,
-        e.y - e.size - 10,
-        barWidth * (e.hp / maxHp),
-        barHeight
-      );
-    }
-
-  });
-}   
+            // Reunaviiva
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(e.x - barWidth / 2, e.y - e.size - 14, barWidth, barHeight);
+        }
+    });
+}
