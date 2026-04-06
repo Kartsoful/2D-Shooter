@@ -19,15 +19,20 @@
   <!-- UI -->
   <div id="ui">
     <h2>Player Status</h2>
+    <p class="ui-subtitle">Arena Combat HUD</p>
     <div class="stat-line"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span></div>
     <div class="stat-line"><span class="stat-label">High Score</span><span class="stat-value" id="highscore">0</span></div>
     <div class="stat-line"><span class="stat-label">Health</span><span class="stat-value" id="health">100</span></div>
+    <div class="meter"><div class="meter-fill" id="healthBar"></div></div>
     <div class="stat-line"><span class="stat-label">Weapon</span><span class="stat-value" id="weapon">normal</span></div>
     <div class="stat-line"><span class="stat-label">Explosive</span><span class="stat-value" id="explosive">0</span></div>
     <div class="stat-line"><span class="stat-label">Piercing</span><span class="stat-value" id="piercing">0</span></div>
     <div class="stat-line"><span class="stat-label">Shotgun</span><span class="stat-value" id="shotgun">0</span></div>
     <div class="stat-line"><span class="stat-label">Shield</span><span class="stat-value" id="shield">0</span></div>
+    <div class="stat-line"><span class="stat-label">Rapid Fire</span><span class="stat-value" id="rapidfire">0</span></div>
+    <div class="stat-line"><span class="stat-label">Multiplier</span><span class="stat-value" id="multiplier">x1.0</span></div>
     <div class="stat-line"><span class="stat-label">Dash</span><span class="stat-value" id="dash">Ready</span></div>
+    <div class="meter"><div class="meter-fill meter-cooldown" id="dashBar"></div></div>
   </div>
 
   <div id="instructions">
@@ -44,6 +49,11 @@
     <h1>GAME OVER</h1>
     <p>Score: <span id="finalScore">0</span></p>
     <button onclick="restart()">PLAY AGAIN</button>
+  </div>
+
+  <div id="pauseScreen" style="display:none;">
+    <h1>PAUSED</h1>
+    <p>P = jatka peliä</p>
   </div>
 
   <script type="module" src="js/main.js"></script>

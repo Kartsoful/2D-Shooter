@@ -1,6 +1,18 @@
 
 import { distance, createParticles } from "./utils.js";
 
+function registerKill(state) {
+  state.killStreak = (state.killStreak || 0) + 1;
+  state.streakTimer = 300;
+  const bonus = Math.min(2, state.killStreak * 0.05); // max x3.00
+  state.scoreMultiplier = 1 + bonus;
+}
+
+function addScore(state, baseScore) {
+  const multiplier = state.scoreMultiplier || 1;
+  state.score += Math.round(baseScore * multiplier);
+}
+
 export function spawnEnemy(canvas, enemies, state) {
   const edge = Math.floor(Math.random() * 4);
   let x, y;
@@ -177,12 +189,14 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
                 otherEnemy.hp -= explosionDamage;
                 if (otherEnemy.hp <= 0) {
                   enemies.splice(k, 1);
-                  state.score += otherEnemy.type === "tank" ? 3 : 1;
+                  registerKill(state);
+                  addScore(state, otherEnemy.type === "tank" ? 3 : 1);
                   particles.push(...createParticles(otherEnemy.x, otherEnemy.y, 5, otherEnemy.type === "tank" ? "blue" : "red"));
                 }
               } else {
                 enemies.splice(k, 1);
-                state.score += 1;
+                registerKill(state);
+                addScore(state, 1);
                 particles.push(...createParticles(otherEnemy.x, otherEnemy.y, 5, "red"));
               }
             }
@@ -195,7 +209,8 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
         
         // Remove kamikaze enemy
         enemies.splice(i, 1);
-        state.score += 2; // Bonus points for kamikaze
+        registerKill(state);
+        addScore(state, 2); // Bonus points for kamikaze
         state.enemiesKilledThisWave++;
         continue; // Skip other collision logic
       } else if (player.shieldTime <= 0) {
@@ -244,7 +259,8 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
 
           if (e.hp <= 0) {
             enemies.splice(i, 1);
-            state.score += 3;
+            registerKill(state);
+            addScore(state, 3);
             state.enemiesKilledThisWave++;
             particles.push(...createParticles(e.x, e.y, 8, "blue"));
           }
@@ -252,7 +268,8 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
           e.hp -= b.type === "piercing" ? 0.5 : 1;
           if (e.hp <= 0) {
             enemies.splice(i, 1);
-            state.score += 10;
+            registerKill(state);
+            addScore(state, 10);
             state.enemiesKilledThisWave++;
             state.bossActive = false;
             state.bossSpawned = false;
@@ -262,7 +279,8 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
           }
         } else {
           enemies.splice(i, 1);
-          state.score++;
+          registerKill(state);
+          addScore(state, 1);
           state.enemiesKilledThisWave++;
           particles.push(...createParticles(e.x, e.y, 5, "red"));
         }
