@@ -10,9 +10,11 @@ export function spawnEnemy(canvas, enemies, state) {
   if (edge === 2) { x = Math.random() * canvas.width; y = 0; }
   if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height; }
 
-  // 20% chance ranged enemy
-  const isShooter = Math.random() < 0.12;
-  const isTank = Math.random() < 0.1;
+  // Enemy type probabilities: 12% shooter, 10% tank, 8% kamikaze, 70% normal
+  const rand = Math.random();
+  const isShooter = rand < 0.12;
+  const isTank = rand >= 0.12 && rand < 0.22;
+  const isKamikaze = rand >= 0.22 && rand < 0.30;
   
     if (isShooter) {
         enemies.push({
@@ -31,6 +33,16 @@ export function spawnEnemy(canvas, enemies, state) {
         speed: 0.9,
         type: "tank",
         hp: Math.floor(Math.random() * 8) + 3 // 3–10
+    });
+    } else if (isKamikaze) {
+    enemies.push({
+        x,
+        y,
+        size: 12,
+        speed: 2.5 + state.score * 0.005, // Fast but gets faster with score
+        type: "kamikaze",
+        explodeRadius: 60,
+        explodeDamage: 20
     });
     } else {
         enemies.push({
@@ -72,8 +84,8 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
 
     const angle = Math.atan2(player.y - e.y, player.x - e.x);
 
-    // 🔹 DEFAULT LIIKE (normal + tank)
-    if (e.type === "normal" || e.type === "tank") {
+    // 🔹 DEFAULT LIIKE (normal + tank + kamikaze)
+    if (e.type === "normal" || e.type === "tank" || e.type === "kamikaze") {
       e.x += Math.cos(angle) * e.speed;
       e.y += Math.sin(angle) * e.speed;
     }
@@ -145,7 +157,48 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
 
     // 🔹 OSUMA PELAAJAAN
     if (Math.hypot(player.x - e.x, player.y - e.y) < player.size + e.size) {
-      if (player.shieldTime <= 0) {
+      if (e.type === "kamikaze") {
+        // Kamikaze explodes on contact
+        const explosionRadius = e.explodeRadius;
+        const explosionDamage = e.explodeDamage;
+        
+        // Damage player if not shielded
+        if (player.shieldTime <= 0) {
+          player.health -= explosionDamage;
+        }
+        
+        // Damage nearby enemies
+        for (let k = enemies.length - 1; k >= 0; k--) {
+          const otherEnemy = enemies[k];
+          if (otherEnemy !== e) {
+            const dist = Math.hypot(e.x - otherEnemy.x, e.y - otherEnemy.y);
+            if (dist < explosionRadius) {
+              if (otherEnemy.hp) {
+                otherEnemy.hp -= explosionDamage;
+                if (otherEnemy.hp <= 0) {
+                  enemies.splice(k, 1);
+                  state.score += otherEnemy.type === "tank" ? 3 : 1;
+                  particles.push(...createParticles(otherEnemy.x, otherEnemy.y, 5, otherEnemy.type === "tank" ? "blue" : "red"));
+                }
+              } else {
+                enemies.splice(k, 1);
+                state.score += 1;
+                particles.push(...createParticles(otherEnemy.x, otherEnemy.y, 5, "red"));
+              }
+            }
+          }
+        }
+        
+        // Create explosion particles and screen shake
+        particles.push(...createParticles(e.x, e.y, 15, "orange"));
+        shake += 5;
+        
+        // Remove kamikaze enemy
+        enemies.splice(i, 1);
+        state.score += 2; // Bonus points for kamikaze
+        state.enemiesKilledThisWave++;
+        continue; // Skip other collision logic
+      } else if (player.shieldTime <= 0) {
         player.health -= (e.type === "tank" ? 2 : 1);
 
         if (player.health <= 0) {
@@ -192,6 +245,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
           if (e.hp <= 0) {
             enemies.splice(i, 1);
             state.score += 3;
+            state.enemiesKilledThisWave++;
             particles.push(...createParticles(e.x, e.y, 8, "blue"));
           }
         } else if (e.type === "boss") {
@@ -199,6 +253,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
           if (e.hp <= 0) {
             enemies.splice(i, 1);
             state.score += 10;
+            state.enemiesKilledThisWave++;
             state.bossActive = false;
             state.bossSpawned = false;
             state.bossCount++;
@@ -208,6 +263,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
         } else {
           enemies.splice(i, 1);
           state.score++;
+          state.enemiesKilledThisWave++;
           particles.push(...createParticles(e.x, e.y, 5, "red"));
         }
 
@@ -221,7 +277,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
     const eb = enemyBullets[i];
     if (Math.hypot(eb.x - player.x, eb.y - player.y) < eb.size + player.size) {
       if (player.shieldTime <= 0) {
-        player.health -= 1;
+        player.health -= 2;
         if (player.health <= 0) {
           state.gameOver = true;
         }
@@ -241,6 +297,10 @@ export function drawEnemies(ctx, enemies, player) {
       ctx.lineWidth = 2;
     } else if (e.type === "tank") {
       ctx.fillStyle = "blue";
+    } else if (e.type === "kamikaze") {
+      ctx.fillStyle = "orange";
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
     } else if (e.type === "boss") {
       ctx.fillStyle = "purple";
       ctx.strokeStyle = "white";
@@ -254,7 +314,7 @@ export function drawEnemies(ctx, enemies, player) {
     ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
     ctx.fill();
 
-    if (e.type === "boss") {
+    if (e.type === "boss" || e.type === "kamikaze") {
       ctx.stroke();
     }
 

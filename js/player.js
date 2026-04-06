@@ -6,9 +6,11 @@ export function createPlayer(canvas) {
     speed: 3.0,
     health: 100,
     shieldTime: 0,
+    speedBoostTime: 0,
     dashTime: 0,
     dashCooldown: 0,
-    dashDir: { x: 0, y: 0 }
+    dashDir: { x: 0, y: 0 },
+    muzzleFlashTime: 0
   };
 }
 
@@ -30,11 +32,26 @@ export function updatePlayer(player, keys, canvas) {
   if (player.dashCooldown > 0) {
     player.dashCooldown--;
   }
+
+  if (player.muzzleFlashTime > 0) {
+    player.muzzleFlashTime--;
+  }
 }
 
-export function drawPlayer(ctx, player) {
+export function drawPlayer(ctx, player, mouse) {
   ctx.fillStyle = "lime";
   ctx.beginPath();
   ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
   ctx.fill();
+
+  // Muzzle flash
+  if (player.muzzleFlashTime > 0) {
+    const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+    const flashX = player.x + Math.cos(angle) * (player.size + 5);
+    const flashY = player.y + Math.sin(angle) * (player.size + 5);
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(flashX, flashY, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
