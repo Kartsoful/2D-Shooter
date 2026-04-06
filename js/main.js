@@ -15,6 +15,8 @@ const shieldDuration = 600;
 const dashDuration = 12;
 const dashCooldownTime = 180;
 const baseShootCooldown = 200;
+const gameSpeedMultiplier = 1.25;
+const bossRespawnDelayFrames = 30 * 60; // 30 seconds at 60 FPS baseline
 
 // Game variables
 let player, bullets, enemies, enemyBullets, powerUps, state;
@@ -68,30 +70,43 @@ document.addEventListener("wheel", (e) => {
 function gameLoop() {
     if (!gameStarted || state.gameOver || isPaused) return;
 
-    gameTime++;
-    if (gameTime % 600 === 0) difficulty += 0.05;   // vaikeutuu hitaammin
+    const now = performance.now();
+    const dt = Math.min((now - lastFrameTime) / 16.6667, 2.5) || 1;
+    const scaledDt = dt * gameSpeedMultiplier;
+    lastFrameTime = now;
+
+    gameTime += scaledDt;
+    while (gameTime >= nextDifficultyTime) {
+        difficulty += 0.05;   // vaikeutuu hitaammin
+        nextDifficultyTime += 600;
+    }
+
+    if (state.bossCooldown > 0) {
+        state.bossCooldown -= scaledDt;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw background
     drawStars(ctx, stars);
 
-    updatePlayer(player, keys, canvas, dt);
-    updateBullets(bullets, canvas, dt);
-    updateBullets(enemyBullets, canvas, dt);
-    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake, dt);
+    updatePlayer(player, keys, canvas, scaledDt);
+    updateBullets(bullets, canvas, scaledDt);
+    updateBullets(enemyBullets, canvas, scaledDt);
+    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake, scaledDt);
     updatePowerUps();
     updateWeaponLogic();
-    updateShieldTimer();
-    updateSpeedBoostTimer();
+    updateShieldTimer(scaledDt);
+    updateSpeedBoostTimer(scaledDt);
     updateRapidFireTimer();
     updateStreakTimer();
-    updateParticles(particles);
-    updateStars(stars, canvas);
+    updateParticles(particles, scaledDt);
+    updateStars(stars, canvas, scaledDt);
 
-    if (!state.bossSpawned && state.score >= 15 + state.bossCount * 30) {
+    if (!state.bossSpawned && !state.bossActive && state.bossCooldown <= 0 && state.score >= 15 + state.bossCount * 30) {
         spawnBoss(canvas, enemies, state);
         state.bossSpawned = true;
+        state.bossCooldown = bossRespawnDelayFrames;
     }
 
     checkWaveProgression();
@@ -101,7 +116,7 @@ function gameLoop() {
         explosiveAmmo = result.explosiveAmmo;
         piercingAmmo = result.piercingAmmo;
         shotgunAmmo = result.shotgunAmmo;
-        player.muzzleFlashTime = 5 * dt;
+        player.muzzleFlashTime = 5 * scaledDt;
         lastShot = Date.now();
     }
 
@@ -498,7 +513,8 @@ function resetGame() {
         waveEnemiesRequired: 10,
         killStreak: 0,
         streakTimer: 0,
-        scoreMultiplier: 1
+        scoreMultiplier: 1,
+        bossCooldown: 0
     };
     weaponIndex = 0;
     explosiveAmmo = 0;
@@ -507,15 +523,20 @@ function resetGame() {
     currentWeapon = "normal";
     difficulty = 1;
     gameTime = 0;
+    nextDifficultyTime = 600;
     isPaused = false;
     shootCooldown = baseShootCooldown;
+    lastFrameTime = performance.now();
 }
 
 function togglePause() {
     if (!gameStarted || state?.gameOver) return;
     isPaused = !isPaused;
     document.getElementById("pauseScreen").style.display = isPaused ? "flex" : "none";
-    if (!isPaused) gameLoop();
+    if (!isPaused) {
+        lastFrameTime = performance.now();
+        gameLoop();
+    }
 }
 
 // Start button
@@ -524,6 +545,7 @@ document.getElementById("startBtn").addEventListener("click", () => {
     resetGame();
     document.getElementById("startScreen").style.display = "none";
     gameStarted = true;
+    lastFrameTime = performance.now();
     gameLoop();
 });
 
@@ -533,6 +555,7 @@ document.getElementById("survivalBtn").addEventListener("click", () => {
     resetGame();
     document.getElementById("startScreen").style.display = "none";
     gameStarted = true;
+    lastFrameTime = performance.now();
     gameLoop();
 });
 
@@ -541,6 +564,7 @@ window.restart = function() {
     document.getElementById("gameOver").style.display = "none";
     resetGame();
     gameStarted = true;
+    lastFrameTime = performance.now();
     gameLoop();
 };
 
@@ -549,7 +573,7 @@ setInterval(() => {
     if (gameStarted && !state.gameOver && !isPaused) {
         spawnEnemy(canvas, enemies, state, difficulty);
     }
-}, 1800);
+}, Math.round(1800 / gameSpeedMultiplier));
 
 setInterval(() => {
     if (gameStarted && !state.gameOver && !isPaused) {
@@ -570,4 +594,4 @@ setInterval(() => {
             type: powerUpType
         });
     }
-}, 15000);
+}, Math.round(15000 / gameSpeedMultiplier));
