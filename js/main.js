@@ -45,9 +45,7 @@ function gameLoop() {
     if (!gameStarted || state.gameOver) return;
 
     gameTime++;
-    if (gameTime % 480 === 0) {        // vaikeutuu noin 8 sekunnin välein
-        difficulty += 0.2;
-    }
+    if (gameTime % 600 === 0) difficulty += 0.15;   // vaikeutuu ~10 sekunnin välein
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -94,8 +92,7 @@ function updatePowerUps() {
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
             const amount = Math.floor(Math.random() * 16) + 15;
             if (p.type === "explosive") explosiveAmmo += amount;
-            else if (p.type === "piercing") piercingAmmo += amount;
-            else if (p.type === "health") player.health = Math.min(100, (player.health || 100) + 25); // Lisätty health powerup
+            else piercingAmmo += amount;
             powerUps.splice(i, 1);
         }
     }
@@ -103,53 +100,22 @@ function updatePowerUps() {
 
 function drawPowerUps(ctx, powerUps) {
     powerUps.forEach(p => {
-        // Värikoodaus tyypin mukaan
-        let color = "#44aaff"; // piercing (sininen) oletus
-        if (p.type === "explosive") color = "#ff4444";
-        else if (p.type === "health") color = "#44ff44"; // vihreä healthille
-        ctx.fillStyle = color;
+        ctx.fillStyle = p.type === "explosive" ? "#ff4444" : "#44aaff";
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
-        // Optionaalisesti pieni merkki tunnistukseksi
-        if (p.type === "health") { 
-            ctx.strokeStyle = "#FFF";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(p.x - 4, p.y);
-            ctx.lineTo(p.x + 4, p.y);
-            ctx.moveTo(p.x, p.y - 4);
-            ctx.lineTo(p.x, p.y + 4);
-            ctx.stroke();
-        }
     });
 }
 
 function drawUI() {
-    document.getElementById("score").textContent = Math.floor(state.score);
-    
-    const healthEl = document.getElementById("health");
-    const currentHealth = Math.max(0, Math.floor(player.health || 100));
-    
-    healthEl.textContent = currentHealth;
-
-    // Värikoodaus healthille
-    if (currentHealth <= 30) {
-        healthEl.style.color = "#ff2222";      // punainen
-        healthEl.style.fontWeight = "bold";
-    } else if (currentHealth <= 60) {
-        healthEl.style.color = "#ffaa00";      // oranssi
-    } else {
-        healthEl.style.color = "#44ff44";      // vihreä
-    }
-
+    document.getElementById("score").textContent = state.score;
+    document.getElementById("health").textContent = Math.max(0, player.health || 100);
     document.getElementById("weapon").textContent = currentWeapon;
     document.getElementById("explosive").textContent = explosiveAmmo;
     document.getElementById("piercing").textContent = piercingAmmo;
 }
 
 function triggerGameOver() {
-    player.health = 0;
     state.gameOver = true;
     document.getElementById("finalScore").textContent = state.score;
     document.getElementById("gameOver").style.display = "flex";
@@ -196,7 +162,6 @@ function resetGame() {
     currentWeapon = "normal";
     difficulty = 1;
     gameTime = 0;
-    gameStarted = false;
 }
 
 // Start button
@@ -215,26 +180,20 @@ window.restart = function() {
     gameLoop();
 };
 
-// Viholliset spawn (vaikeutuu ajan myötä)
+// Spawnaus
 setInterval(() => {
     if (gameStarted && !state.gameOver) {
         spawnEnemy(canvas, enemies, state, difficulty);
     }
-}, Math.max(350, 950 - Math.floor(difficulty * 45)));   // spawnaa selvästi nopeammin
+}, 800);
 
-// Power-upit (nyt myös health)
 setInterval(() => {
     if (gameStarted && !state.gameOver) {
-        // Health 15%, explosive 42.5%, loput piercing
-        const rnd = Math.random();
-        let type = "piercing";
-        if (rnd < 0.15) type = "health";
-        else if (rnd < 0.575) type = "explosive";
         powerUps.push({
             x: Math.random() * (canvas.width - 40) + 20,
             y: Math.random() * (canvas.height - 40) + 20,
             size: 12,
-            type: type
+            type: Math.random() < 0.5 ? "piercing" : "explosive"
         });
     }
-}, 8000);
+}, 8500);
