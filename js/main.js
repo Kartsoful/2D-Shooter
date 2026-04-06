@@ -68,6 +68,10 @@ document.addEventListener("wheel", (e) => {
 function gameLoop() {
     if (!gameStarted || state.gameOver || isPaused) return;
 
+    const now = performance.now();
+    const dt = Math.min((now - lastFrameTime) / 16.6667, 2.5) || 1;
+    lastFrameTime = now;
+
     gameTime++;
     if (gameTime % 600 === 0) difficulty += 0.05;   // vaikeutuu hitaammin
 
@@ -509,13 +513,17 @@ function resetGame() {
     gameTime = 0;
     isPaused = false;
     shootCooldown = baseShootCooldown;
+    lastFrameTime = performance.now();
 }
 
 function togglePause() {
     if (!gameStarted || state?.gameOver) return;
     isPaused = !isPaused;
     document.getElementById("pauseScreen").style.display = isPaused ? "flex" : "none";
-    if (!isPaused) gameLoop();
+    if (!isPaused) {
+        lastFrameTime = performance.now();
+        gameLoop();
+    }
 }
 
 // Start button
@@ -524,6 +532,7 @@ document.getElementById("startBtn").addEventListener("click", () => {
     resetGame();
     document.getElementById("startScreen").style.display = "none";
     gameStarted = true;
+    lastFrameTime = performance.now();
     gameLoop();
 });
 
@@ -533,6 +542,7 @@ document.getElementById("survivalBtn").addEventListener("click", () => {
     resetGame();
     document.getElementById("startScreen").style.display = "none";
     gameStarted = true;
+    lastFrameTime = performance.now();
     gameLoop();
 });
 
@@ -541,6 +551,7 @@ window.restart = function() {
     document.getElementById("gameOver").style.display = "none";
     resetGame();
     gameStarted = true;
+    lastFrameTime = performance.now();
     gameLoop();
 };
 
