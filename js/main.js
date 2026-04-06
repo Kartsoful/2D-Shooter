@@ -15,7 +15,7 @@ const shieldDuration = 600;
 const dashDuration = 12;
 const dashCooldownTime = 180;
 const baseShootCooldown = 200;
-const gameSpeedMultiplier = 1.25;
+const gameSpeedMultiplier = 2;
 const bossRespawnDelayFrames = 30 * 60; // 30 seconds at 60 FPS baseline
 
 // Game variables
