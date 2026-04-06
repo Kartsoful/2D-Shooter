@@ -58,13 +58,8 @@ document.addEventListener("mouseup", () => mouseDown = false);
 // Wheel aseenvaihto
 document.addEventListener("wheel", (e) => {
     e.preventDefault();
-    let nextIndex = (weaponIndex + (e.deltaY > 0 ? 1 : -1) + weapons.length) % weapons.length;
-    let nextWeapon = weapons[nextIndex];
-    if ((nextWeapon === "explosive" && explosiveAmmo <= 0) || 
-        (nextWeapon === "piercing" && piercingAmmo <= 0) ||
-        (nextWeapon === "shotgun" && shotgunAmmo <= 0)) return;
-    weaponIndex = nextIndex;
-    currentWeapon = nextWeapon;
+    const direction = e.deltaY > 0 ? 1 : -1;
+    selectNextWeapon(direction);
 });
 
 // ==================== GAME LOOP ====================
@@ -160,6 +155,25 @@ function updateWeaponLogic() {
     if (currentWeapon === "explosive" && explosiveAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
     if (currentWeapon === "piercing" && piercingAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
     if (currentWeapon === "shotgun" && shotgunAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
+}
+
+function weaponHasAmmo(weaponName) {
+    if (weaponName === "explosive") return explosiveAmmo > 0;
+    if (weaponName === "piercing") return piercingAmmo > 0;
+    if (weaponName === "shotgun") return shotgunAmmo > 0;
+    return true;
+}
+
+function selectNextWeapon(direction) {
+    for (let step = 1; step <= weapons.length; step++) {
+        const idx = (weaponIndex + direction * step + weapons.length) % weapons.length;
+        const weaponName = weapons[idx];
+        if (weaponHasAmmo(weaponName)) {
+            weaponIndex = idx;
+            currentWeapon = weaponName;
+            return;
+        }
+    }
 }
 
 function getDashDirection() {
@@ -384,6 +398,14 @@ function drawUI() {
     document.getElementById("rapidfire").textContent = Math.ceil((player.rapidFireTime || 0) / 60);
     document.getElementById("multiplier").textContent = `x${(state.scoreMultiplier || 1).toFixed(2)}`;
     document.getElementById("dash").textContent = player.dashCooldown > 0 ? Math.ceil(player.dashCooldown / 60) : "Ready";
+
+    const healthPercent = Math.max(0, Math.min(100, player.health || 0));
+    document.getElementById("healthBar").style.width = `${healthPercent}%`;
+
+    const dashReadyPercent = player.dashCooldown > 0
+        ? Math.max(0, 100 - (player.dashCooldown / dashCooldownTime) * 100)
+        : 100;
+    document.getElementById("dashBar").style.width = `${dashReadyPercent}%`;
 }
 
 function triggerGameOver() {
