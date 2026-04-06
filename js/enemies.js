@@ -309,14 +309,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
           if (e.hp <= 0) {
             enemies.splice(i, 1);
             registerKill(state);
-            if (e.type === "splitter") {
-              spawnSplitlings(enemies, e, 3);
-              addScore(state, 2);
-            } else if (e.type === "spawner") {
-              addScore(state, 4);
-            } else {
-              addScore(state, 3);
-            }
+            addScore(state, 3);
             state.enemiesKilledThisWave++;
             particles.push(...createParticles(e.x, e.y, 8, "blue"));
           }

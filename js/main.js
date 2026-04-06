@@ -65,17 +65,11 @@ document.addEventListener("wheel", (e) => {
 });
 
 // ==================== GAME LOOP ====================
-function gameLoop(timestamp = performance.now()) {
+function gameLoop() {
     if (!gameStarted || state.gameOver || isPaused) return;
-    const deltaMs = Math.min(50, Math.max(0, timestamp - lastFrameTime));
-    const dt = deltaMs / (1000 / 60);
-    lastFrameTime = timestamp;
 
-    gameTime += dt;
-    if (gameTime >= nextDifficultyTime) {
-        difficulty += 0.05;   // vaikeutuu hitaammin
-        nextDifficultyTime += 600;
-    }
+    gameTime++;
+    if (gameTime % 600 === 0) difficulty += 0.05;   // vaikeutuu hitaammin
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -88,12 +82,12 @@ function gameLoop(timestamp = performance.now()) {
     updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake, dt);
     updatePowerUps();
     updateWeaponLogic();
-    updateShieldTimer(dt);
-    updateSpeedBoostTimer(dt);
-    updateRapidFireTimer(dt);
-    updateStreakTimer(dt);
-    updateParticles(particles, dt);
-    updateStars(stars, canvas, dt);
+    updateShieldTimer();
+    updateSpeedBoostTimer();
+    updateRapidFireTimer();
+    updateStreakTimer();
+    updateParticles(particles);
+    updateStars(stars, canvas);
 
     if (!state.bossSpawned && state.score >= 15 + state.bossCount * 30) {
         spawnBoss(canvas, enemies, state);
@@ -229,19 +223,19 @@ function updateSpeedBoostTimer(dt = 1) {
     }
 }
 
-function updateRapidFireTimer(dt = 1) {
+function updateRapidFireTimer() {
     if (player.rapidFireTime > 0) {
-        player.rapidFireTime -= dt;
+        player.rapidFireTime--;
         shootCooldown = 110;
     } else {
         shootCooldown = baseShootCooldown;
     }
 }
 
-function updateStreakTimer(dt = 1) {
+function updateStreakTimer() {
     if (!state) return;
     if (state.streakTimer > 0) {
-        state.streakTimer -= dt;
+        state.streakTimer--;
         if (state.streakTimer <= 0) {
             state.killStreak = 0;
             state.scoreMultiplier = 1;
@@ -513,10 +507,8 @@ function resetGame() {
     currentWeapon = "normal";
     difficulty = 1;
     gameTime = 0;
-    nextDifficultyTime = 600;
     isPaused = false;
     shootCooldown = baseShootCooldown;
-    lastFrameTime = performance.now();
 }
 
 function togglePause() {
@@ -578,4 +570,4 @@ setInterval(() => {
             type: powerUpType
         });
     }
-}, 9000);
+}, 15000);
