@@ -4,131 +4,116 @@ export function spawnEnemy(canvas, enemies, state, difficulty = 1) {
     const edge = Math.floor(Math.random() * 4);
     let x, y;
 
-    if (edge === 0) { x = 0; y = Math.random() * canvas.height; }
-    if (edge === 1) { x = canvas.width; y = Math.random() * canvas.height; }
-    if (edge === 2) { x = Math.random() * canvas.width; y = 0; }
-    if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height; }
+    if (edge === 0) { x = Math.random() * canvas.width; y = -20; }
+    else if (edge === 1) { x = canvas.width + 20; y = Math.random() * canvas.height; }
+    else if (edge === 2) { x = Math.random() * canvas.width; y = canvas.height + 20; }
+    else { x = -20; y = Math.random() * canvas.height; }
 
-    const isShooter = Math.random() < (0.12 + difficulty * 0.02);
-    const isTank = Math.random() < (0.1 + difficulty * 0.015);
-  
-    if (isShooter) {
-        enemies.push({
+    const rand = Math.random();
+    let enemy;
+
+    if (rand < 0.08 + difficulty * 0.025) {           // Shooter
+        enemy = {
             x, y,
             size: 18,
-            speed: 0.8 + difficulty * 0.15,
+            speed: 1.8 + difficulty * 0.25,
             type: "shooter",
             shootCooldown: 0,
-            color: "#ff00ff"
-        });
-    } else if (isTank) {
-        enemies.push({
+            color: "#ff00ff",
+            health: 1
+        };
+    } 
+    else if (rand < 0.16 + difficulty * 0.02) {       // Tank
+        enemy = {
             x, y,
-            size: 22,
-            speed: 0.9 + difficulty * 0.1,
+            size: 24,
+            speed: 1.1 + difficulty * 0.12,
             type: "tank",
-            hp: Math.floor(3 + difficulty * 2)
-        });
-    } else {
-        enemies.push({
+            health: Math.floor(3 + difficulty * 1.8),
+            color: "#ff8800"
+        };
+    } 
+    else {                                            // Normaali vihollinen
+        enemy = {
             x, y,
-            size: 15,
-            speed: 1.4 + difficulty * 0.25 + state.score * 0.003,
-            type: "normal"
-        });
+            size: 16,
+            speed: 2.2 + difficulty * 0.35,
+            type: "normal",
+            health: 1,
+            color: "#ff4444"
+        };
     }
+
+    enemies.push(enemy);
 }
 
 
-export function updateEnemies(enemies, player, bullets, enemyBullets, state) {
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const e = enemies[i];
+export function updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty = 1) {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
 
-    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+        // Liikuta vihollista kohti pelaajaa
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const dist = Math.hypot(dx, dy);
 
-    // 🔹 DEFAULT LIIKE (normal + tank)
-    if (e.type === "normal" || e.type === "tank") {
-      e.x += Math.cos(angle) * e.speed;
-      e.y += Math.sin(angle) * e.speed;
-    }
-
-    // 🔹 SHOOTER LOGIIKKA
-    if (e.type === "shooter") {
-      const dist = Math.hypot(player.x - e.x, player.y - e.y);
-
-      // pysyy etäällä
-      if (dist > 200) {
-        e.x += Math.cos(angle) * e.speed;
-        e.y += Math.sin(angle) * e.speed;
-      }
-
-      // ampuu
-      e.shootCooldown--;
-
-      if (e.shootCooldown <= 0) {
-        enemyBullets.push({
-          x: e.x,
-          y: e.y,
-          dx: Math.cos(angle) * 4,
-          dy: Math.sin(angle) * 4,
-          size: 5
-        });
-
-        e.shootCooldown = 60;
-      }
-    }
-
-    // 🔹 OSUMA PELAAJAAN
-    if (Math.hypot(player.x - e.x, player.y - e.y) < player.size + e.size) {
-      player.health -= (e.type === "tank" ? 2 : 1);
-
-      if (player.health <= 0) {
-        state.gameOver = true;
-      }
-    }
-
-    // 🔹 BULLET COLLISION
-    for (let j = bullets.length - 1; j >= 0; j--) {
-      const b = bullets[j];
-
-      if (Math.hypot(b.x - e.x, b.y - e.y) < b.size + e.size) {
-        if (b.type === "piercing") {
-            // ei poisteta bulletia
-            } else {
-            bullets.splice(j, 1);
+        if (dist > 0) {
+            e.x += (dx / dist) * e.speed;
+            e.y += (dy / dist) * e.speed;
         }
 
-        if (b.type === "explosive") {
-            const radius = 50;
+        // Shooter ampuu
+        if (e.type === "shooter") {
+            e.shootCooldown--;
+            if (e.shootCooldown <= 0) {
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                enemyBullets.push({
+                    x: e.x,
+                    y: e.y,
+                    dx: Math.cos(angle) * 5.5,
+                    dy: Math.sin(angle) * 5.5,
+                    size: 6,
+                    damage: 10
+                });
+                e.shootCooldown = Math.floor(45 / difficulty);  // ampuu nopeammin vaikeammalla
+            }
+        }
 
-            enemies.forEach((enemy, k) => {
-                const dist = Math.hypot(b.x - enemy.x, b.y - enemy.y);
-
-                if (dist < radius) {
-                enemy.hp ? enemy.hp-- : enemies.splice(k, 1);
+        // Törmäys pelaajan luoteihin
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            const b = bullets[j];
+            if (Math.hypot(e.x - b.x, e.y - b.y) < e.size + b.size) {
+                
+                // Vahinko
+                if (e.health) {
+                    e.health -= (b.type === "explosive" ? 2 : 1);
+                } else {
+                    e.health = 0; // normaaleille ja vanhoille
                 }
-            });
 
-            bullets.splice(j, 1);
+                // Poista luoti (paitsi piercing)
+                if (b.type !== "piercing") {
+                    bullets.splice(j, 1);
+                }
+
+                // Jos health nollassa tai alle → tuhoudu
+                if (!e.health || e.health <= 0) {
+                    if (e.type === "tank") state.score += 30;
+                    else if (e.type === "shooter") state.score += 20;
+                    else state.score += 10;
+
+                    enemies.splice(i, 1);
+                    break;
+                }
+            }
         }
 
-        // tank ottaa damagea
-        if (e.type === "tank") {
-          e.hp--;
-
-          if (e.hp <= 0) {
+        // Pelaaja törmää viholliseen
+        if (Math.hypot(e.x - player.x, e.y - player.y) < e.size + player.size) {
+            player.health -= (e.type === "tank" ? 25 : 15);
             enemies.splice(i, 1);
-            state.score += 3;
-          }
-        } else {
-          enemies.splice(i, 1);
-          state.score++;
         }
-
-        break;
-      }
     }
-  }
 }
 
 export function drawEnemies(ctx, enemies, player) {

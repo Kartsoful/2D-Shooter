@@ -110,14 +110,26 @@ function drawPowerUps(ctx, powerUps) {
 }
 
 function drawUI() {
-    document.getElementById("score").textContent = state.score;
-    document.getElementById("health").textContent = Math.max(0, player.health || 100);
+    document.getElementById("score").textContent = Math.floor(state.score);
+    document.getElementById("health").textContent = Math.max(0, Math.floor(player.health || 100));
+    
+    // Värikoodaus healthbarille (punainen kun matalalla)
+    const healthEl = document.getElementById("health");
+    if (player.health < 30) {
+        healthEl.style.color = "#ff4444";
+    } else if (player.health < 60) {
+        healthEl.style.color = "#ffaa00";
+    } else {
+        healthEl.style.color = "#44ff44";
+    }
+
     document.getElementById("weapon").textContent = currentWeapon;
     document.getElementById("explosive").textContent = explosiveAmmo;
     document.getElementById("piercing").textContent = piercingAmmo;
 }
 
 function triggerGameOver() {
+    player.health = 0;
     state.gameOver = true;
     document.getElementById("finalScore").textContent = state.score;
     document.getElementById("gameOver").style.display = "flex";
@@ -188,9 +200,9 @@ setInterval(() => {
     if (gameStarted && !state.gameOver) {
         spawnEnemy(canvas, enemies, state, difficulty);
     }
-}, Math.max(400, 900 - difficulty * 40));   // spawnaa nopeammin kun vaikeutuu
+}, Math.max(350, 950 - Math.floor(difficulty * 45)));   // spawnaa selvästi nopeammin
 
-// Power-upit
+// Power-upit (ei tarvitse muuttaa)
 setInterval(() => {
     if (gameStarted && !state.gameOver) {
         powerUps.push({
@@ -200,4 +212,4 @@ setInterval(() => {
             type: Math.random() < 0.5 ? "piercing" : "explosive"
         });
     }
-}, 8500);
+}, 8000);
