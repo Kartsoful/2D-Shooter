@@ -1,6 +1,5 @@
-// Esimerkinomaiset funktiot:
+// Luo uusi vihollinen satunnaisella tyypillä, joka on "shooter", "charger" tai "normal"
 export function spawnEnemy(canvas, enemies, state, difficulty) {
-    // ... (math random sijainti kuten aiemmin)
     const size = Math.random() * 18 + 22;
     let x, y;
     if (Math.random() < 0.5) {
@@ -32,18 +31,22 @@ export function spawnEnemy(canvas, enemies, state, difficulty) {
     });
 }
 
+// Päivitä kaikkien vihollisten liikkeet JA mahdollinen ampuminen
 export function updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty) {
     for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
-        // Liike kohti pelaajaa
+
+        // Liike kohti pelaajaa, varmista ettei dist==0
         const dx = player.x - e.x;
         const dy = player.y - e.y;
         const dist = Math.hypot(dx, dy);
         const speed = e.speed || 1.2;
-        e.x += (dx / dist) * speed;
-        e.y += (dy / dist) * speed;
+        if (dist > 0.01) {
+            e.x += (dx / dist) * speed;
+            e.y += (dy / dist) * speed;
+        }
 
-        // Vihollisen ampuminen, jos tyyppi shooter
+        // Vihollisen ampuminen, jos tyypiltään shooter
         if (e.type === "shooter" && dist < 650) {
             e.shootTimer = (e.shootTimer || 0) + 1;
             if (e.shootTimer >= e.shootCooldown) {
