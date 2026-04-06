@@ -292,6 +292,20 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
                 if (dist < radius) {
                     if (enemy.hp) {
                         enemy.hp--;
+                        if (enemy.hp <= 0) {
+                          enemies.splice(k, 1);
+                          registerKill(state);
+                          if (enemy.type === "splitter") {
+                            spawnSplitlings(enemies, enemy, 3);
+                            addScore(state, 2);
+                          } else if (enemy.type === "spawner") {
+                            addScore(state, 4);
+                          } else {
+                            addScore(state, enemy.type === "tank" ? 3 : 1);
+                          }
+                          state.enemiesKilledThisWave++;
+                          particles.push(...createParticles(enemy.x, enemy.y, 6, enemy.type === "spawner" ? "#a78bfa" : enemy.type === "splitter" ? "#67e8f9" : "red"));
+                        }
                     } else {
                         particles.push(...createParticles(enemy.x, enemy.y, 5, enemy.type === "boss" ? "purple" : enemy.type === "tank" ? "blue" : "red"));
                         enemies.splice(k, 1);
