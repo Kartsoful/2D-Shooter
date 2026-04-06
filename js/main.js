@@ -38,10 +38,6 @@ let gameMode = 'normal';
 let lastFrameTime = performance.now();
 let nextDifficultyTime = 600;
 
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
 // ==================== INPUT ====================
 document.addEventListener("keydown", e => {
     if (e.key.toLowerCase() === "p") {
@@ -69,18 +65,11 @@ document.addEventListener("wheel", (e) => {
 });
 
 // ==================== GAME LOOP ====================
-function gameLoop(timestamp = performance.now()) {
+function gameLoop() {
     if (!gameStarted || state.gameOver || isPaused) return;
-    const rawDelta = Number.isFinite(timestamp - lastFrameTime) ? (timestamp - lastFrameTime) : 16.6667;
-    const deltaMs = clamp(rawDelta, 4, 50);
-    const dt = deltaMs / (1000 / 60);
-    lastFrameTime = timestamp;
 
-    gameTime += dt;
-    while (gameTime >= nextDifficultyTime) {
-        difficulty += 0.05;   // vaikeutuu hitaammin
-        nextDifficultyTime += 600;
-    }
+    gameTime++;
+    if (gameTime % 600 === 0) difficulty += 0.05;   // vaikeutuu hitaammin
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -93,12 +82,12 @@ function gameLoop(timestamp = performance.now()) {
     updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake, dt);
     updatePowerUps();
     updateWeaponLogic();
-    updateShieldTimer(dt);
-    updateSpeedBoostTimer(dt);
-    updateRapidFireTimer(dt);
-    updateStreakTimer(dt);
-    updateParticles(particles, dt);
-    updateStars(stars, canvas, dt);
+    updateShieldTimer();
+    updateSpeedBoostTimer();
+    updateRapidFireTimer();
+    updateStreakTimer();
+    updateParticles(particles);
+    updateStars(stars, canvas);
 
     if (!state.bossSpawned && state.score >= 15 + state.bossCount * 30) {
         spawnBoss(canvas, enemies, state);
@@ -112,7 +101,7 @@ function gameLoop(timestamp = performance.now()) {
         explosiveAmmo = result.explosiveAmmo;
         piercingAmmo = result.piercingAmmo;
         shotgunAmmo = result.shotgunAmmo;
-        player.muzzleFlashTime = 5;
+        player.muzzleFlashTime = 5 * dt;
         lastShot = Date.now();
     }
 
@@ -221,32 +210,32 @@ function attemptDash() {
 
 function updateShieldTimer(dt = 1) {
     if (player.shieldTime > 0) {
-        player.shieldTime = Math.max(0, player.shieldTime - dt);
+        player.shieldTime -= dt;
     }
 }
 
 function updateSpeedBoostTimer(dt = 1) {
     if (player.speedBoostTime > 0) {
-        player.speedBoostTime = Math.max(0, player.speedBoostTime - dt);
+        player.speedBoostTime -= dt;
         if (player.speedBoostTime <= 0) {
             player.speed = 3.0; // Reset to normal speed
         }
     }
 }
 
-function updateRapidFireTimer(dt = 1) {
+function updateRapidFireTimer() {
     if (player.rapidFireTime > 0) {
-        player.rapidFireTime = Math.max(0, player.rapidFireTime - dt);
+        player.rapidFireTime--;
         shootCooldown = 110;
     } else {
         shootCooldown = baseShootCooldown;
     }
 }
 
-function updateStreakTimer(dt = 1) {
+function updateStreakTimer() {
     if (!state) return;
     if (state.streakTimer > 0) {
-        state.streakTimer = Math.max(0, state.streakTimer - dt);
+        state.streakTimer--;
         if (state.streakTimer <= 0) {
             state.killStreak = 0;
             state.scoreMultiplier = 1;
@@ -402,35 +391,25 @@ function drawPowerUps(ctx, powerUps) {
 }
 
 function drawUI() {
-    const byId = (id) => document.getElementById(id);
-    const setText = (id, value) => {
-        const el = byId(id);
-        if (el) el.textContent = value;
-    };
-    const setWidth = (id, widthPercent) => {
-        const el = byId(id);
-        if (el) el.style.width = `${widthPercent}%`;
-    };
-
-    setText("score", state.score);
-    setText("highscore", highScore);
-    setText("health", Math.max(0, Math.round(player.health || 100)));
-    setText("weapon", currentWeapon);
-    setText("explosive", explosiveAmmo);
-    setText("piercing", piercingAmmo);
-    setText("shotgun", shotgunAmmo);
-    setText("shield", Math.ceil((player.shieldTime || 0) / 60));
-    setText("rapidfire", Math.ceil((player.rapidFireTime || 0) / 60));
-    setText("multiplier", `x${(state.scoreMultiplier || 1).toFixed(2)}`);
-    setText("dash", player.dashCooldown > 0 ? Math.ceil(player.dashCooldown / 60) : "Ready");
+    document.getElementById("score").textContent = state.score;
+    document.getElementById("highscore").textContent = highScore;
+    document.getElementById("health").textContent = Math.max(0, player.health || 100);
+    document.getElementById("weapon").textContent = currentWeapon;
+    document.getElementById("explosive").textContent = explosiveAmmo;
+    document.getElementById("piercing").textContent = piercingAmmo;
+    document.getElementById("shotgun").textContent = shotgunAmmo;
+    document.getElementById("shield").textContent = Math.ceil((player.shieldTime || 0) / 60);
+    document.getElementById("rapidfire").textContent = Math.ceil((player.rapidFireTime || 0) / 60);
+    document.getElementById("multiplier").textContent = `x${(state.scoreMultiplier || 1).toFixed(2)}`;
+    document.getElementById("dash").textContent = player.dashCooldown > 0 ? Math.ceil(player.dashCooldown / 60) : "Ready";
 
     const healthPercent = Math.max(0, Math.min(100, player.health || 0));
-    setWidth("healthBar", healthPercent);
+    document.getElementById("healthBar").style.width = `${healthPercent}%`;
 
     const dashReadyPercent = player.dashCooldown > 0
         ? Math.max(0, 100 - (player.dashCooldown / dashCooldownTime) * 100)
         : 100;
-    setWidth("dashBar", dashReadyPercent);
+    document.getElementById("dashBar").style.width = `${dashReadyPercent}%`;
 }
 
 function triggerGameOver() {
@@ -528,10 +507,8 @@ function resetGame() {
     currentWeapon = "normal";
     difficulty = 1;
     gameTime = 0;
-    nextDifficultyTime = 600;
     isPaused = false;
     shootCooldown = baseShootCooldown;
-    lastFrameTime = performance.now();
 }
 
 function togglePause() {
@@ -593,4 +570,4 @@ setInterval(() => {
             type: powerUpType
         });
     }
-}, 9000);
+}, 15000);

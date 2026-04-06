@@ -27,8 +27,8 @@ export function spawnEnemy(canvas, enemies, state) {
   const isShooter = rand < 0.12;
   const isTank = rand >= 0.12 && rand < 0.22;
   const isKamikaze = rand >= 0.22 && rand < 0.30;
-  const isSplitter = rand >= 0.30 && rand < 0.38;
-  const isSpawner = rand >= 0.38 && rand < 0.43;
+  const isSplitter = rand >= 0.30 && rand < 0.40;
+  const isSpawner = rand >= 0.40 && rand < 0.48;
   
     if (isShooter) {
         enemies.push({
@@ -63,7 +63,7 @@ export function spawnEnemy(canvas, enemies, state) {
         x,
         y,
         size: 16,
-        speed: 0.9 + state.score * 0.0015,
+        speed: 1.0 + state.score * 0.002,
         type: "splitter",
         hp: 2
     });
@@ -75,7 +75,7 @@ export function spawnEnemy(canvas, enemies, state) {
         speed: 0.75,
         type: "spawner",
         hp: 6,
-        spawnCooldown: 240
+        spawnCooldown: 180
     });
     } else {
         enemies.push({
@@ -118,7 +118,7 @@ function spawnSplitlings(enemies, e, count = 3) {
       x: e.x + Math.cos(angle) * 10,
       y: e.y + Math.sin(angle) * 10,
       size: 8,
-      speed: 1.8,
+      speed: 2.0,
       type: "splitling"
     });
   }
@@ -170,10 +170,10 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
           x: e.x + (Math.random() - 0.5) * 24,
           y: e.y + (Math.random() - 0.5) * 24,
           size: 8,
-          speed: 1.9,
+          speed: 2.1,
           type: "splitling"
         });
-        e.spawnCooldown = 240;
+        e.spawnCooldown = 180;
       }
     }
 
@@ -323,14 +323,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
           if (e.hp <= 0) {
             enemies.splice(i, 1);
             registerKill(state);
-            if (e.type === "splitter") {
-              spawnSplitlings(enemies, e, 3);
-              addScore(state, 2);
-            } else if (e.type === "spawner") {
-              addScore(state, 4);
-            } else {
-              addScore(state, 3);
-            }
+            addScore(state, 3);
             state.enemiesKilledThisWave++;
             particles.push(...createParticles(e.x, e.y, 8, "blue"));
           }

@@ -30,11 +30,11 @@ export function updatePlayer(player, keys, canvas, dt = 1) {
   player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
 
   if (player.dashCooldown > 0) {
-    player.dashCooldown = Math.max(0, player.dashCooldown - dt);
+    player.dashCooldown -= dt;
   }
 
   if (player.muzzleFlashTime > 0) {
-    player.muzzleFlashTime = Math.max(0, player.muzzleFlashTime - dt);
+    player.muzzleFlashTime -= dt;
   }
 }
 
