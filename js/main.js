@@ -14,6 +14,7 @@ const weapons = ["normal", "piercing", "explosive", "shotgun"];
 const shieldDuration = 600;
 const dashDuration = 12;
 const dashCooldownTime = 180;
+const baseShootCooldown = 200;
 
 // Game variables
 let player, bullets, enemies, enemyBullets, powerUps, state;
@@ -24,8 +25,9 @@ let shotgunAmmo = 0;
 let currentWeapon = "normal";
 let keys = {}, mouse = { x: 0, y: 0 }, mouseDown = false;
 let lastShot = 0;
-const shootCooldown = 200;
+let shootCooldown = baseShootCooldown;
 let gameStarted = false;
+let isPaused = false;
 let difficulty = 1;        // Kasvaa ajan myötä
 let gameTime = 0;
 let particles = [];
@@ -36,6 +38,12 @@ let gameMode = 'normal';
 
 // ==================== INPUT ====================
 document.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        togglePause();
+        return;
+    }
+
     if (e.code === "Space") {
         e.preventDefault();
         attemptDash();
@@ -61,7 +69,7 @@ document.addEventListener("wheel", (e) => {
 
 // ==================== GAME LOOP ====================
 function gameLoop() {
-    if (!gameStarted || state.gameOver) return;
+    if (!gameStarted || state.gameOver || isPaused) return;
 
     gameTime++;
     if (gameTime % 600 === 0) difficulty += 0.05;   // vaikeutuu hitaammin
@@ -79,6 +87,8 @@ function gameLoop() {
     updateWeaponLogic();
     updateShieldTimer();
     updateSpeedBoostTimer();
+    updateRapidFireTimer();
+    updateStreakTimer();
     updateParticles(particles);
     updateStars(stars, canvas);
 
@@ -89,7 +99,7 @@ function gameLoop() {
 
     checkWaveProgression();
 
-    if (mouseDown && Date.now() - lastShot > shootCooldown) {
+    if (!isPaused && mouseDown && Date.now() - lastShot > shootCooldown) {
         const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo, shotgunAmmo);
         explosiveAmmo = result.explosiveAmmo;
         piercingAmmo = result.piercingAmmo;
@@ -191,6 +201,26 @@ function updateSpeedBoostTimer() {
         player.speedBoostTime--;
         if (player.speedBoostTime <= 0) {
             player.speed = 3.0; // Reset to normal speed
+        }
+    }
+}
+
+function updateRapidFireTimer() {
+    if (player.rapidFireTime > 0) {
+        player.rapidFireTime--;
+        shootCooldown = 110;
+    } else {
+        shootCooldown = baseShootCooldown;
+    }
+}
+
+function updateStreakTimer() {
+    if (!state) return;
+    if (state.streakTimer > 0) {
+        state.streakTimer--;
+        if (state.streakTimer <= 0) {
+            state.killStreak = 0;
+            state.scoreMultiplier = 1;
         }
     }
 }
@@ -318,6 +348,8 @@ function updatePowerUps() {
             } else if (p.type === "speed") {
                 player.speedBoostTime = Math.min((player.speedBoostTime || 0) + 600, 600); // 10 seconds max
                 player.speed = 4.5; // Temporarily increase speed
+            } else if (p.type === "rapidfire") {
+                player.rapidFireTime = Math.min((player.rapidFireTime || 0) + 480, 720);
             }
             powerUps.splice(i, 1);
         }
@@ -332,6 +364,7 @@ function drawPowerUps(ctx, powerUps) {
         else if (p.type === "shield") ctx.fillStyle = "#88ff88";
         else if (p.type === "health") ctx.fillStyle = "#00ff00";
         else if (p.type === "speed") ctx.fillStyle = "#ffff44";
+        else if (p.type === "rapidfire") ctx.fillStyle = "#ff66ff";
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -348,6 +381,8 @@ function drawUI() {
     document.getElementById("piercing").textContent = piercingAmmo;
     document.getElementById("shotgun").textContent = shotgunAmmo;
     document.getElementById("shield").textContent = Math.ceil((player.shieldTime || 0) / 60);
+    document.getElementById("rapidfire").textContent = Math.ceil((player.rapidFireTime || 0) / 60);
+    document.getElementById("multiplier").textContent = `x${(state.scoreMultiplier || 1).toFixed(2)}`;
     document.getElementById("dash").textContent = player.dashCooldown > 0 ? Math.ceil(player.dashCooldown / 60) : "Ready";
 }
 
@@ -417,6 +452,7 @@ function drawEnemyBullets(ctx, enemyBullets) {
 
 function resetGame() {
     player = createPlayer(canvas);
+    player.rapidFireTime = 0;
     bullets = [];
     enemies = [];
     enemyBullets = [];
@@ -433,7 +469,10 @@ function resetGame() {
         wave: 1,
         upgradePoints: 0,
         enemiesKilledThisWave: 0,
-        waveEnemiesRequired: 10
+        waveEnemiesRequired: 10,
+        killStreak: 0,
+        streakTimer: 0,
+        scoreMultiplier: 1
     };
     weaponIndex = 0;
     explosiveAmmo = 0;
@@ -442,6 +481,15 @@ function resetGame() {
     currentWeapon = "normal";
     difficulty = 1;
     gameTime = 0;
+    isPaused = false;
+    shootCooldown = baseShootCooldown;
+}
+
+function togglePause() {
+    if (!gameStarted || state?.gameOver) return;
+    isPaused = !isPaused;
+    document.getElementById("pauseScreen").style.display = isPaused ? "flex" : "none";
+    if (!isPaused) gameLoop();
 }
 
 // Start button
@@ -472,21 +520,22 @@ window.restart = function() {
 
 // Spawnaus
 setInterval(() => {
-    if (gameStarted && !state.gameOver) {
+    if (gameStarted && !state.gameOver && !isPaused) {
         spawnEnemy(canvas, enemies, state, difficulty);
     }
 }, 1800);
 
 setInterval(() => {
-    if (gameStarted && !state.gameOver) {
+    if (gameStarted && !state.gameOver && !isPaused) {
         const r = Math.random();
         let powerUpType;
-        if (r < 0.2) powerUpType = "piercing";
-        else if (r < 0.4) powerUpType = "explosive";
-        else if (r < 0.6) powerUpType = "shield";
-        else if (r < 0.8) powerUpType = "health";
-        else if (r < 0.9) powerUpType = "speed";
-        else powerUpType = "shotgun";
+        if (r < 0.18) powerUpType = "piercing";
+        else if (r < 0.36) powerUpType = "explosive";
+        else if (r < 0.52) powerUpType = "shield";
+        else if (r < 0.68) powerUpType = "health";
+        else if (r < 0.82) powerUpType = "speed";
+        else if (r < 0.92) powerUpType = "shotgun";
+        else powerUpType = "rapidfire";
         
         powerUps.push({
             x: Math.random() * (canvas.width - 40) + 20,

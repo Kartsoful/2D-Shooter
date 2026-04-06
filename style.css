@@ -70,7 +70,8 @@ canvas {
 }
 
 #gameOver,
-#startScreen {
+#startScreen,
+#pauseScreen {
   position: absolute;
   top: 0;
   left: 0;
@@ -86,18 +87,21 @@ canvas {
 }
 
 #gameOver.hidden,
-#startScreen.hidden {
+#startScreen.hidden,
+#pauseScreen.hidden {
   display: none;
 }
 
 #gameOver h1,
-#startScreen h1 {
+#startScreen h1,
+#pauseScreen h1 {
   font-size: clamp(3rem, 6vw, 5rem);
   margin: 0 0 1rem;
 }
 
 #gameOver p,
-#startScreen p {
+#startScreen p,
+#pauseScreen p {
   margin: 0 0 1.5rem;
   font-size: 1.1rem;
   color: #d0d7ff;
@@ -134,4 +138,11 @@ button:active {
 
 #gameOver p {
   font-size: 1.2rem;
+}
+
+#pauseScreen {
+  z-index: 90;
+  text-align: center;
+  background: rgba(4, 8, 20, 0.75);
+  backdrop-filter: blur(3px);
 }

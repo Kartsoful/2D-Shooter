@@ -27,6 +27,8 @@
     <div class="stat-line"><span class="stat-label">Piercing</span><span class="stat-value" id="piercing">0</span></div>
     <div class="stat-line"><span class="stat-label">Shotgun</span><span class="stat-value" id="shotgun">0</span></div>
     <div class="stat-line"><span class="stat-label">Shield</span><span class="stat-value" id="shield">0</span></div>
+    <div class="stat-line"><span class="stat-label">Rapid Fire</span><span class="stat-value" id="rapidfire">0</span></div>
+    <div class="stat-line"><span class="stat-label">Multiplier</span><span class="stat-value" id="multiplier">x1.0</span></div>
     <div class="stat-line"><span class="stat-label">Dash</span><span class="stat-value" id="dash">Ready</span></div>
   </div>
 
@@ -44,6 +46,11 @@
     <h1>GAME OVER</h1>
     <p>Score: <span id="finalScore">0</span></p>
     <button onclick="restart()">PLAY AGAIN</button>
+  </div>
+
+  <div id="pauseScreen" style="display:none;">
+    <h1>PAUSED</h1>
+    <p>P = jatka peliä</p>
   </div>
 
   <script type="module" src="js/main.js"></script>
