@@ -22,11 +22,13 @@ export function spawnEnemy(canvas, enemies, state) {
   if (edge === 2) { x = Math.random() * canvas.width; y = 0; }
   if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height; }
 
-  // Enemy type probabilities: 12% shooter, 10% tank, 8% kamikaze, 70% normal
+  // Enemy type probabilities
   const rand = Math.random();
   const isShooter = rand < 0.12;
   const isTank = rand >= 0.12 && rand < 0.22;
   const isKamikaze = rand >= 0.22 && rand < 0.30;
+  const isSplitter = rand >= 0.30 && rand < 0.40;
+  const isSpawner = rand >= 0.40 && rand < 0.48;
   
     if (isShooter) {
         enemies.push({
@@ -55,6 +57,25 @@ export function spawnEnemy(canvas, enemies, state) {
         type: "kamikaze",
         explodeRadius: 60,
         explodeDamage: 20
+    });
+    } else if (isSplitter) {
+    enemies.push({
+        x,
+        y,
+        size: 16,
+        speed: 1.0 + state.score * 0.002,
+        type: "splitter",
+        hp: 2
+    });
+    } else if (isSpawner) {
+    enemies.push({
+        x,
+        y,
+        size: 19,
+        speed: 0.75,
+        type: "spawner",
+        hp: 6,
+        spawnCooldown: 180
     });
     } else {
         enemies.push({
@@ -90,16 +111,29 @@ export function spawnBoss(canvas, enemies, state) {
   });
 }
 
-export function updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake) {
+function spawnSplitlings(enemies, e, count = 3) {
+  for (let n = 0; n < count; n++) {
+    const angle = (Math.PI * 2 * n) / count;
+    enemies.push({
+      x: e.x + Math.cos(angle) * 10,
+      y: e.y + Math.sin(angle) * 10,
+      size: 8,
+      speed: 2.0,
+      type: "splitling"
+    });
+  }
+}
+
+export function updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake, dt = 1) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
 
     const angle = Math.atan2(player.y - e.y, player.x - e.x);
 
     // 🔹 DEFAULT LIIKE (normal + tank + kamikaze)
-    if (e.type === "normal" || e.type === "tank" || e.type === "kamikaze") {
-      e.x += Math.cos(angle) * e.speed;
-      e.y += Math.sin(angle) * e.speed;
+    if (e.type === "normal" || e.type === "tank" || e.type === "kamikaze" || e.type === "splitter" || e.type === "spawner" || e.type === "splitling") {
+      e.x += Math.cos(angle) * e.speed * dt;
+      e.y += Math.sin(angle) * e.speed * dt;
     }
 
     // 🔹 SHOOTER LOGIIKKA
@@ -108,12 +142,12 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
 
       // pysyy etäällä
       if (dist > 200) {
-        e.x += Math.cos(angle) * e.speed;
-        e.y += Math.sin(angle) * e.speed;
+        e.x += Math.cos(angle) * e.speed * dt;
+        e.y += Math.sin(angle) * e.speed * dt;
       }
 
       // ampuu
-      e.shootCooldown--;
+      e.shootCooldown -= dt;
 
       if (e.shootCooldown <= 0) {
         enemyBullets.push({
@@ -128,17 +162,32 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
       }
     }
 
+    // 🔹 SPAWNER LOGIIKKA
+    if (e.type === "spawner") {
+      e.spawnCooldown -= dt;
+      if (e.spawnCooldown <= 0) {
+        enemies.push({
+          x: e.x + (Math.random() - 0.5) * 24,
+          y: e.y + (Math.random() - 0.5) * 24,
+          size: 8,
+          speed: 2.1,
+          type: "splitling"
+        });
+        e.spawnCooldown = 180;
+      }
+    }
+
     // 🔹 BOSS LOGIIKKA
     if (e.type === "boss") {
       if (e.y < 120) {
-        e.y += 1.1;
+        e.y += 1.1 * dt;
       } else {
-        e.phase += 0.04 + difficulty * 0.002;
-        e.x += Math.cos(e.phase) * 1.8;
-        e.y += Math.sin(e.phase * 0.6) * 0.5;
+        e.phase += (0.04 + difficulty * 0.002) * dt;
+        e.x += Math.cos(e.phase) * 1.8 * dt;
+        e.y += Math.sin(e.phase * 0.6) * 0.5 * dt;
       }
 
-      e.shootCooldown--;
+      e.shootCooldown -= dt;
       if (e.shootCooldown <= 0) {
         const bossAngle = Math.atan2(player.y - e.y, player.x - e.x);
         for (let spread = -2; spread <= 2; spread++) {
@@ -154,7 +203,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
         e.shootCooldown = 110;
       }
 
-      e.spawnCooldown--;
+      e.spawnCooldown -= dt;
       if (e.spawnCooldown <= 0) {
         enemies.push({
           x: e.x + (Math.random() - 0.5) * 80,
@@ -214,7 +263,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
         state.enemiesKilledThisWave++;
         continue; // Skip other collision logic
       } else if (player.shieldTime <= 0) {
-        player.health -= (e.type === "tank" ? 2 : 1);
+        player.health -= (e.type === "tank" ? 2 : e.type === "spawner" ? 3 : 1);
 
         if (player.health <= 0) {
           state.gameOver = true;
@@ -254,7 +303,7 @@ export function updateEnemies(enemies, player, bullets, enemyBullets, state, dif
         }
 
         // tank ottaa damagea
-        if (e.type === "tank") {
+        if (e.type === "tank" || e.type === "splitter" || e.type === "spawner") {
           e.hp--;
 
           if (e.hp <= 0) {
@@ -315,6 +364,16 @@ export function drawEnemies(ctx, enemies, player) {
       ctx.lineWidth = 2;
     } else if (e.type === "tank") {
       ctx.fillStyle = "blue";
+    } else if (e.type === "splitter") {
+      ctx.fillStyle = "#67e8f9";
+      ctx.strokeStyle = "#0ea5e9";
+      ctx.lineWidth = 2;
+    } else if (e.type === "splitling") {
+      ctx.fillStyle = "#22d3ee";
+    } else if (e.type === "spawner") {
+      ctx.fillStyle = "#a78bfa";
+      ctx.strokeStyle = "#7c3aed";
+      ctx.lineWidth = 2;
     } else if (e.type === "kamikaze") {
       ctx.fillStyle = "orange";
       ctx.strokeStyle = "red";
@@ -332,7 +391,7 @@ export function drawEnemies(ctx, enemies, player) {
     ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
     ctx.fill();
 
-    if (e.type === "boss" || e.type === "kamikaze") {
+    if (e.type === "boss" || e.type === "kamikaze" || e.type === "splitter" || e.type === "spawner") {
       ctx.stroke();
     }
 
@@ -353,11 +412,11 @@ export function drawEnemies(ctx, enemies, player) {
     }
 
     // Tankille HP bar
-    if (e.type === "tank") {
+    if (e.type === "tank" || e.type === "splitter" || e.type === "spawner") {
       const barWidth = 30;
       const barHeight = 4;
 
-      const maxHp = 10; // sama kuin spawnissa max
+      const maxHp = e.type === "spawner" ? 6 : e.type === "splitter" ? 2 : 10;
 
       // tausta
       ctx.fillStyle = "black";

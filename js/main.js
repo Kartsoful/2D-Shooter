@@ -35,6 +35,8 @@ let stars = [];
 let shake = 0;
 let highScore = parseInt(localStorage.getItem('highScore')) || 0;
 let gameMode = 'normal';
+let lastFrameTime = performance.now();
+let nextDifficultyTime = 600;
 
 // ==================== INPUT ====================
 document.addEventListener("keydown", e => {
@@ -74,10 +76,10 @@ function gameLoop() {
     // Draw background
     drawStars(ctx, stars);
 
-    updatePlayer(player, keys, canvas);
-    updateBullets(bullets, canvas);
-    updateBullets(enemyBullets, canvas);
-    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake);
+    updatePlayer(player, keys, canvas, dt);
+    updateBullets(bullets, canvas, dt);
+    updateBullets(enemyBullets, canvas, dt);
+    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake, dt);
     updatePowerUps();
     updateWeaponLogic();
     updateShieldTimer();
@@ -99,7 +101,7 @@ function gameLoop() {
         explosiveAmmo = result.explosiveAmmo;
         piercingAmmo = result.piercingAmmo;
         shotgunAmmo = result.shotgunAmmo;
-        player.muzzleFlashTime = 5;
+        player.muzzleFlashTime = 5 * dt;
         lastShot = Date.now();
     }
 
@@ -143,6 +145,8 @@ function checkWaveProgression() {
         // Increase difficulty and requirements for next wave
         state.waveEnemiesRequired = 10 + (state.wave - 1) * 5; // 10, 15, 20, 25...
         state.enemiesKilledThisWave = 0;
+        player.health = Math.min(100, player.health + 10);
+        player.shieldTime = Math.min(shieldDuration, player.shieldTime + 120);
         
         // Show wave completion message (could be enhanced with UI)
         console.log(`Wave ${state.wave - 1} completed! Earned ${pointsEarned} upgrade points.`);
@@ -204,15 +208,15 @@ function attemptDash() {
     player.dashCooldown = dashCooldownTime;
 }
 
-function updateShieldTimer() {
+function updateShieldTimer(dt = 1) {
     if (player.shieldTime > 0) {
-        player.shieldTime--;
+        player.shieldTime -= dt;
     }
 }
 
-function updateSpeedBoostTimer() {
+function updateSpeedBoostTimer(dt = 1) {
     if (player.speedBoostTime > 0) {
-        player.speedBoostTime--;
+        player.speedBoostTime -= dt;
         if (player.speedBoostTime <= 0) {
             player.speed = 3.0; // Reset to normal speed
         }
@@ -289,12 +293,12 @@ function createParticles(x, y, count = 5, color = "#ffff00") {
   return parts;
 }
 
-function updateParticles(particles) {
+function updateParticles(particles, dt = 1) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life--;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
     if (p.life <= 0) particles.splice(i, 1);
   }
 }
@@ -324,9 +328,9 @@ function createStars(canvas) {
   return stars;
 }
 
-function updateStars(stars, canvas) {
+function updateStars(stars, canvas, dt = 1) {
   stars.forEach(s => {
-    s.x -= s.speed;
+    s.x -= s.speed * dt;
     if (s.x < 0) {
       s.x = canvas.width;
       s.y = Math.random() * canvas.height;
@@ -350,11 +354,11 @@ function updatePowerUps() {
         const p = powerUps[i];
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
             if (p.type === "explosive") {
-                explosiveAmmo += Math.floor(Math.random() * 16) + 15;
+                explosiveAmmo += Math.floor(Math.random() * 18) + 20;
             } else if (p.type === "piercing") {
-                piercingAmmo += Math.floor(Math.random() * 16) + 15;
+                piercingAmmo += Math.floor(Math.random() * 18) + 20;
             } else if (p.type === "shotgun") {
-                shotgunAmmo += Math.floor(Math.random() * 8) + 8; // Less ammo but more powerful
+                shotgunAmmo += Math.floor(Math.random() * 12) + 10; // Less ammo but more powerful
             } else if (p.type === "shield") {
                 player.shieldTime = Math.min(player.shieldTime + 360, shieldDuration);
             } else if (p.type === "health") {
