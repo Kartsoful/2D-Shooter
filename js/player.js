@@ -14,27 +14,27 @@ export function createPlayer(canvas) {
   };
 }
 
-export function updatePlayer(player, keys, canvas) {
+export function updatePlayer(player, keys, canvas, dt = 1) {
   if (player.dashTime > 0) {
-    player.x += player.dashDir.x * player.speed * 3;
-    player.y += player.dashDir.y * player.speed * 3;
-    player.dashTime--;
+    player.x += player.dashDir.x * player.speed * 3 * dt;
+    player.y += player.dashDir.y * player.speed * 3 * dt;
+    player.dashTime -= dt;
   } else {
-    if (keys["w"]) player.y -= player.speed;
-    if (keys["s"]) player.y += player.speed;
-    if (keys["a"]) player.x -= player.speed;
-    if (keys["d"]) player.x += player.speed;
+    if (keys["w"]) player.y -= player.speed * dt;
+    if (keys["s"]) player.y += player.speed * dt;
+    if (keys["a"]) player.x -= player.speed * dt;
+    if (keys["d"]) player.x += player.speed * dt;
   }
 
   player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
   player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
 
   if (player.dashCooldown > 0) {
-    player.dashCooldown--;
+    player.dashCooldown = Math.max(0, player.dashCooldown - dt);
   }
 
   if (player.muzzleFlashTime > 0) {
-    player.muzzleFlashTime--;
+    player.muzzleFlashTime = Math.max(0, player.muzzleFlashTime - dt);
   }
 }
 
