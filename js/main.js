@@ -14,6 +14,7 @@ const weapons = ["normal", "piercing", "explosive", "shotgun"];
 const shieldDuration = 600;
 const dashDuration = 12;
 const dashCooldownTime = 180;
+const baseShootCooldown = 200;
 
 // Game variables
 let player, bullets, enemies, enemyBullets, powerUps, state;
@@ -24,8 +25,9 @@ let shotgunAmmo = 0;
 let currentWeapon = "normal";
 let keys = {}, mouse = { x: 0, y: 0 }, mouseDown = false;
 let lastShot = 0;
-const shootCooldown = 200;
+let shootCooldown = baseShootCooldown;
 let gameStarted = false;
+let isPaused = false;
 let difficulty = 1;        // Kasvaa ajan myötä
 let gameTime = 0;
 let particles = [];
@@ -33,9 +35,17 @@ let stars = [];
 let shake = 0;
 let highScore = parseInt(localStorage.getItem('highScore')) || 0;
 let gameMode = 'normal';
+let lastFrameTime = performance.now();
+let nextDifficultyTime = 600;
 
 // ==================== INPUT ====================
 document.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        togglePause();
+        return;
+    }
+
     if (e.code === "Space") {
         e.preventDefault();
         attemptDash();
@@ -50,37 +60,40 @@ document.addEventListener("mouseup", () => mouseDown = false);
 // Wheel aseenvaihto
 document.addEventListener("wheel", (e) => {
     e.preventDefault();
-    let nextIndex = (weaponIndex + (e.deltaY > 0 ? 1 : -1) + weapons.length) % weapons.length;
-    let nextWeapon = weapons[nextIndex];
-    if ((nextWeapon === "explosive" && explosiveAmmo <= 0) || 
-        (nextWeapon === "piercing" && piercingAmmo <= 0) ||
-        (nextWeapon === "shotgun" && shotgunAmmo <= 0)) return;
-    weaponIndex = nextIndex;
-    currentWeapon = nextWeapon;
+    const direction = e.deltaY > 0 ? 1 : -1;
+    selectNextWeapon(direction);
 });
 
 // ==================== GAME LOOP ====================
-function gameLoop() {
-    if (!gameStarted || state.gameOver) return;
+function gameLoop(timestamp = performance.now()) {
+    if (!gameStarted || state.gameOver || isPaused) return;
+    const deltaMs = Math.min(50, Math.max(0, timestamp - lastFrameTime));
+    const dt = deltaMs / (1000 / 60);
+    lastFrameTime = timestamp;
 
-    gameTime++;
-    if (gameTime % 600 === 0) difficulty += 0.05;   // vaikeutuu hitaammin
+    gameTime += dt;
+    if (gameTime >= nextDifficultyTime) {
+        difficulty += 0.05;   // vaikeutuu hitaammin
+        nextDifficultyTime += 600;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw background
     drawStars(ctx, stars);
 
-    updatePlayer(player, keys, canvas);
-    updateBullets(bullets, canvas);
-    updateBullets(enemyBullets, canvas);
-    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake);
+    updatePlayer(player, keys, canvas, dt);
+    updateBullets(bullets, canvas, dt);
+    updateBullets(enemyBullets, canvas, dt);
+    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake, dt);
     updatePowerUps();
     updateWeaponLogic();
-    updateShieldTimer();
-    updateSpeedBoostTimer();
-    updateParticles(particles);
-    updateStars(stars, canvas);
+    updateShieldTimer(dt);
+    updateSpeedBoostTimer(dt);
+    updateRapidFireTimer(dt);
+    updateStreakTimer(dt);
+    updateParticles(particles, dt);
+    updateStars(stars, canvas, dt);
 
     if (!state.bossSpawned && state.score >= 15 + state.bossCount * 30) {
         spawnBoss(canvas, enemies, state);
@@ -89,12 +102,12 @@ function gameLoop() {
 
     checkWaveProgression();
 
-    if (mouseDown && Date.now() - lastShot > shootCooldown) {
+    if (!isPaused && mouseDown && Date.now() - lastShot > shootCooldown) {
         const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo, shotgunAmmo);
         explosiveAmmo = result.explosiveAmmo;
         piercingAmmo = result.piercingAmmo;
         shotgunAmmo = result.shotgunAmmo;
-        player.muzzleFlashTime = 5;
+        player.muzzleFlashTime = 5 * dt;
         lastShot = Date.now();
     }
 
@@ -138,6 +151,8 @@ function checkWaveProgression() {
         // Increase difficulty and requirements for next wave
         state.waveEnemiesRequired = 10 + (state.wave - 1) * 5; // 10, 15, 20, 25...
         state.enemiesKilledThisWave = 0;
+        player.health = Math.min(100, player.health + 10);
+        player.shieldTime = Math.min(shieldDuration, player.shieldTime + 120);
         
         // Show wave completion message (could be enhanced with UI)
         console.log(`Wave ${state.wave - 1} completed! Earned ${pointsEarned} upgrade points.`);
@@ -150,6 +165,25 @@ function updateWeaponLogic() {
     if (currentWeapon === "explosive" && explosiveAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
     if (currentWeapon === "piercing" && piercingAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
     if (currentWeapon === "shotgun" && shotgunAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
+}
+
+function weaponHasAmmo(weaponName) {
+    if (weaponName === "explosive") return explosiveAmmo > 0;
+    if (weaponName === "piercing") return piercingAmmo > 0;
+    if (weaponName === "shotgun") return shotgunAmmo > 0;
+    return true;
+}
+
+function selectNextWeapon(direction) {
+    for (let step = 1; step <= weapons.length; step++) {
+        const idx = (weaponIndex + direction * step + weapons.length) % weapons.length;
+        const weaponName = weapons[idx];
+        if (weaponHasAmmo(weaponName)) {
+            weaponIndex = idx;
+            currentWeapon = weaponName;
+            return;
+        }
+    }
 }
 
 function getDashDirection() {
@@ -180,17 +214,37 @@ function attemptDash() {
     player.dashCooldown = dashCooldownTime;
 }
 
-function updateShieldTimer() {
+function updateShieldTimer(dt = 1) {
     if (player.shieldTime > 0) {
-        player.shieldTime--;
+        player.shieldTime -= dt;
     }
 }
 
-function updateSpeedBoostTimer() {
+function updateSpeedBoostTimer(dt = 1) {
     if (player.speedBoostTime > 0) {
-        player.speedBoostTime--;
+        player.speedBoostTime -= dt;
         if (player.speedBoostTime <= 0) {
             player.speed = 3.0; // Reset to normal speed
+        }
+    }
+}
+
+function updateRapidFireTimer(dt = 1) {
+    if (player.rapidFireTime > 0) {
+        player.rapidFireTime -= dt;
+        shootCooldown = 110;
+    } else {
+        shootCooldown = baseShootCooldown;
+    }
+}
+
+function updateStreakTimer(dt = 1) {
+    if (!state) return;
+    if (state.streakTimer > 0) {
+        state.streakTimer -= dt;
+        if (state.streakTimer <= 0) {
+            state.killStreak = 0;
+            state.scoreMultiplier = 1;
         }
     }
 }
@@ -245,12 +299,12 @@ function createParticles(x, y, count = 5, color = "#ffff00") {
   return parts;
 }
 
-function updateParticles(particles) {
+function updateParticles(particles, dt = 1) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life--;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
     if (p.life <= 0) particles.splice(i, 1);
   }
 }
@@ -280,9 +334,9 @@ function createStars(canvas) {
   return stars;
 }
 
-function updateStars(stars, canvas) {
+function updateStars(stars, canvas, dt = 1) {
   stars.forEach(s => {
-    s.x -= s.speed;
+    s.x -= s.speed * dt;
     if (s.x < 0) {
       s.x = canvas.width;
       s.y = Math.random() * canvas.height;
@@ -306,11 +360,11 @@ function updatePowerUps() {
         const p = powerUps[i];
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
             if (p.type === "explosive") {
-                explosiveAmmo += Math.floor(Math.random() * 16) + 15;
+                explosiveAmmo += Math.floor(Math.random() * 18) + 20;
             } else if (p.type === "piercing") {
-                piercingAmmo += Math.floor(Math.random() * 16) + 15;
+                piercingAmmo += Math.floor(Math.random() * 18) + 20;
             } else if (p.type === "shotgun") {
-                shotgunAmmo += Math.floor(Math.random() * 8) + 8; // Less ammo but more powerful
+                shotgunAmmo += Math.floor(Math.random() * 12) + 10; // Less ammo but more powerful
             } else if (p.type === "shield") {
                 player.shieldTime = Math.min(player.shieldTime + 360, shieldDuration);
             } else if (p.type === "health") {
@@ -318,6 +372,8 @@ function updatePowerUps() {
             } else if (p.type === "speed") {
                 player.speedBoostTime = Math.min((player.speedBoostTime || 0) + 600, 600); // 10 seconds max
                 player.speed = 4.5; // Temporarily increase speed
+            } else if (p.type === "rapidfire") {
+                player.rapidFireTime = Math.min((player.rapidFireTime || 0) + 480, 720);
             }
             powerUps.splice(i, 1);
         }
@@ -332,6 +388,7 @@ function drawPowerUps(ctx, powerUps) {
         else if (p.type === "shield") ctx.fillStyle = "#88ff88";
         else if (p.type === "health") ctx.fillStyle = "#00ff00";
         else if (p.type === "speed") ctx.fillStyle = "#ffff44";
+        else if (p.type === "rapidfire") ctx.fillStyle = "#ff66ff";
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -348,7 +405,17 @@ function drawUI() {
     document.getElementById("piercing").textContent = piercingAmmo;
     document.getElementById("shotgun").textContent = shotgunAmmo;
     document.getElementById("shield").textContent = Math.ceil((player.shieldTime || 0) / 60);
+    document.getElementById("rapidfire").textContent = Math.ceil((player.rapidFireTime || 0) / 60);
+    document.getElementById("multiplier").textContent = `x${(state.scoreMultiplier || 1).toFixed(2)}`;
     document.getElementById("dash").textContent = player.dashCooldown > 0 ? Math.ceil(player.dashCooldown / 60) : "Ready";
+
+    const healthPercent = Math.max(0, Math.min(100, player.health || 0));
+    document.getElementById("healthBar").style.width = `${healthPercent}%`;
+
+    const dashReadyPercent = player.dashCooldown > 0
+        ? Math.max(0, 100 - (player.dashCooldown / dashCooldownTime) * 100)
+        : 100;
+    document.getElementById("dashBar").style.width = `${dashReadyPercent}%`;
 }
 
 function triggerGameOver() {
@@ -417,6 +484,7 @@ function drawEnemyBullets(ctx, enemyBullets) {
 
 function resetGame() {
     player = createPlayer(canvas);
+    player.rapidFireTime = 0;
     bullets = [];
     enemies = [];
     enemyBullets = [];
@@ -433,7 +501,10 @@ function resetGame() {
         wave: 1,
         upgradePoints: 0,
         enemiesKilledThisWave: 0,
-        waveEnemiesRequired: 10
+        waveEnemiesRequired: 10,
+        killStreak: 0,
+        streakTimer: 0,
+        scoreMultiplier: 1
     };
     weaponIndex = 0;
     explosiveAmmo = 0;
@@ -442,6 +513,17 @@ function resetGame() {
     currentWeapon = "normal";
     difficulty = 1;
     gameTime = 0;
+    nextDifficultyTime = 600;
+    isPaused = false;
+    shootCooldown = baseShootCooldown;
+    lastFrameTime = performance.now();
+}
+
+function togglePause() {
+    if (!gameStarted || state?.gameOver) return;
+    isPaused = !isPaused;
+    document.getElementById("pauseScreen").style.display = isPaused ? "flex" : "none";
+    if (!isPaused) gameLoop();
 }
 
 // Start button
@@ -472,21 +554,22 @@ window.restart = function() {
 
 // Spawnaus
 setInterval(() => {
-    if (gameStarted && !state.gameOver) {
+    if (gameStarted && !state.gameOver && !isPaused) {
         spawnEnemy(canvas, enemies, state, difficulty);
     }
 }, 1800);
 
 setInterval(() => {
-    if (gameStarted && !state.gameOver) {
+    if (gameStarted && !state.gameOver && !isPaused) {
         const r = Math.random();
         let powerUpType;
-        if (r < 0.2) powerUpType = "piercing";
-        else if (r < 0.4) powerUpType = "explosive";
-        else if (r < 0.6) powerUpType = "shield";
-        else if (r < 0.8) powerUpType = "health";
-        else if (r < 0.9) powerUpType = "speed";
-        else powerUpType = "shotgun";
+        if (r < 0.18) powerUpType = "piercing";
+        else if (r < 0.36) powerUpType = "explosive";
+        else if (r < 0.52) powerUpType = "shield";
+        else if (r < 0.68) powerUpType = "health";
+        else if (r < 0.82) powerUpType = "speed";
+        else if (r < 0.92) powerUpType = "shotgun";
+        else powerUpType = "rapidfire";
         
         powerUps.push({
             x: Math.random() * (canvas.width - 40) + 20,
@@ -495,4 +578,4 @@ setInterval(() => {
             type: powerUpType
         });
     }
-}, 15000);
+}, 9000);

@@ -55,10 +55,10 @@ export function shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, pier
     return { explosiveAmmo, piercingAmmo, shotgunAmmo };
 }
 
-export function updateBullets(bullets, canvas) {
+export function updateBullets(bullets, canvas, dt = 1) {
   bullets.forEach((b, i) => {
-    b.x += b.dx;
-    b.y += b.dy;
+    b.x += b.dx * dt;
+    b.y += b.dy * dt;
 
     if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
       bullets.splice(i, 1);
