@@ -94,7 +94,8 @@ function updatePowerUps() {
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
             const amount = Math.floor(Math.random() * 16) + 15;
             if (p.type === "explosive") explosiveAmmo += amount;
-            else piercingAmmo += amount;
+            else if (p.type === "piercing") piercingAmmo += amount;
+            else if (p.type === "health") player.health = Math.min(100, (player.health || 100) + 25); // Lisätty health powerup
             powerUps.splice(i, 1);
         }
     }
@@ -102,10 +103,25 @@ function updatePowerUps() {
 
 function drawPowerUps(ctx, powerUps) {
     powerUps.forEach(p => {
-        ctx.fillStyle = p.type === "explosive" ? "#ff4444" : "#44aaff";
+        // Värikoodaus tyypin mukaan
+        let color = "#44aaff"; // piercing (sininen) oletus
+        if (p.type === "explosive") color = "#ff4444";
+        else if (p.type === "health") color = "#44ff44"; // vihreä healthille
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
+        // Optionaalisesti pieni merkki tunnistukseksi
+        if (p.type === "health") { 
+            ctx.strokeStyle = "#FFF";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(p.x - 4, p.y);
+            ctx.lineTo(p.x + 4, p.y);
+            ctx.moveTo(p.x, p.y - 4);
+            ctx.lineTo(p.x, p.y + 4);
+            ctx.stroke();
+        }
     });
 }
 
@@ -206,14 +222,19 @@ setInterval(() => {
     }
 }, Math.max(350, 950 - Math.floor(difficulty * 45)));   // spawnaa selvästi nopeammin
 
-// Power-upit (ei tarvitse muuttaa)
+// Power-upit (nyt myös health)
 setInterval(() => {
     if (gameStarted && !state.gameOver) {
+        // Health 15%, explosive 42.5%, loput piercing
+        const rnd = Math.random();
+        let type = "piercing";
+        if (rnd < 0.15) type = "health";
+        else if (rnd < 0.575) type = "explosive";
         powerUps.push({
             x: Math.random() * (canvas.width - 40) + 20,
             y: Math.random() * (canvas.height - 40) + 20,
             size: 12,
-            type: Math.random() < 0.5 ? "piercing" : "explosive"
+            type: type
         });
     }
 }, 8000);
