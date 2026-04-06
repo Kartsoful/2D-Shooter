@@ -1,14 +1,19 @@
 import { createPlayer, updatePlayer, drawPlayer } from "./player.js";
 import { shoot, updateBullets, drawBullets } from "./bullets.js";
-import { spawnEnemy, updateEnemies, drawEnemies } from "./enemies.js";
+import { spawnEnemy, spawnBoss, updateEnemies, drawEnemies } from "./enemies.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+const uiPanel = document.getElementById("ui");
+const instructionsPanel = document.getElementById("instructions");
 
 canvas.width = window.innerWidth * 0.98;
 canvas.height = window.innerHeight * 0.98;
 
 const weapons = ["normal", "piercing", "explosive"];
+const shieldDuration = 600;
+const dashDuration = 12;
+const dashCooldownTime = 180;
 
 // Game variables
 let player, bullets, enemies, enemyBullets, powerUps, state;
@@ -18,13 +23,22 @@ let piercingAmmo = 0;
 let currentWeapon = "normal";
 let keys = {}, mouse = { x: 0, y: 0 }, mouseDown = false;
 let lastShot = 0;
-const shootCooldown = 120;
+const shootCooldown = 200;
 let gameStarted = false;
 let difficulty = 1;        // Kasvaa ajan myötä
 let gameTime = 0;
+let particles = [];
+let stars = [];
+let shake = 0;
 
 // ==================== INPUT ====================
-document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keydown", e => {
+    if (e.code === "Space") {
+        e.preventDefault();
+        attemptDash();
+    }
+    keys[e.key.toLowerCase()] = true;
+});
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 document.addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 document.addEventListener("mousedown", () => mouseDown = true);
@@ -45,16 +59,27 @@ function gameLoop() {
     if (!gameStarted || state.gameOver) return;
 
     gameTime++;
-    if (gameTime % 600 === 0) difficulty += 0.15;   // vaikeutuu ~10 sekunnin välein
+    if (gameTime % 600 === 0) difficulty += 0.05;   // vaikeutuu hitaammin
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw background
+    drawStars(ctx, stars);
+
     updatePlayer(player, keys, canvas);
     updateBullets(bullets, canvas);
-    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty);
-
+    updateBullets(enemyBullets, canvas);
+    updateEnemies(enemies, player, bullets, enemyBullets, state, difficulty, particles, shake);
     updatePowerUps();
     updateWeaponLogic();
+    updateShieldTimer();
+    updateParticles(particles);
+    updateStars(stars, canvas);
+
+    if (!state.bossSpawned && state.score >= 15 + state.bossCount * 30) {
+        spawnBoss(canvas, enemies, state);
+        state.bossSpawned = true;
+    }
 
     if (mouseDown && Date.now() - lastShot > shootCooldown) {
         const result = shoot(player, mouse, bullets, currentWeapon, explosiveAmmo, piercingAmmo);
@@ -68,13 +93,25 @@ function gameLoop() {
         return;
     }
 
+    // Apply shake
+    ctx.save();
+    if (shake > 0) {
+        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        shake *= 0.9;
+        if (shake < 0.1) shake = 0;
+    }
+
     drawPlayer(ctx, player);
     drawBullets(ctx, bullets);
     drawEnemies(ctx, enemies, player);
+    drawBossBar();
     drawPowerUps(ctx, powerUps);
     drawEnemyBullets(ctx, enemyBullets);
-    updateEnemyBullets();
+    drawParticles(ctx, particles);
 
+    ctx.restore();
+
+    updatePanelVisibility();
     drawUI();
 
     requestAnimationFrame(gameLoop);
@@ -86,13 +123,159 @@ function updateWeaponLogic() {
     if (currentWeapon === "piercing" && piercingAmmo <= 0) { currentWeapon = "normal"; weaponIndex = 0; }
 }
 
+function getDashDirection() {
+    let dx = 0;
+    let dy = 0;
+
+    if (keys["w"]) dy -= 1;
+    if (keys["s"]) dy += 1;
+    if (keys["a"]) dx -= 1;
+    if (keys["d"]) dx += 1;
+
+    if (dx === 0 && dy === 0) {
+        const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+        dx = Math.cos(angle);
+        dy = Math.sin(angle);
+    }
+
+    const length = Math.hypot(dx, dy);
+    return length === 0 ? null : { x: dx / length, y: dy / length };
+}
+
+function attemptDash() {
+    if (!gameStarted || state?.gameOver || player.dashCooldown > 0 || player.dashTime > 0) return;
+    const dir = getDashDirection();
+    if (!dir) return;
+    player.dashDir = dir;
+    player.dashTime = dashDuration;
+    player.dashCooldown = dashCooldownTime;
+}
+
+function updateShieldTimer() {
+    if (player.shieldTime > 0) {
+        player.shieldTime--;
+    }
+}
+
+function getPanelDistance(panel) {
+    const rect = panel.getBoundingClientRect();
+    const px = player.x;
+    const py = player.y;
+
+    const dx = Math.max(rect.left - px, 0, px - rect.right);
+    const dy = Math.max(rect.top - py, 0, py - rect.bottom);
+    return Math.hypot(dx, dy);
+}
+
+function getPanelVisibility(panel) {
+    const dist = getPanelDistance(panel);
+    const fadeStart = 160;
+    const fadeEnd = 60;
+
+    if (dist >= fadeStart) return 1;
+    if (dist <= fadeEnd) return 0.15;
+
+    return 0.15 + ((dist - fadeEnd) / (fadeStart - fadeEnd)) * 0.85;
+}
+
+function updatePanelVisibility() {
+    if (uiPanel) {
+        const opacity = getPanelVisibility(uiPanel);
+        uiPanel.style.opacity = opacity;
+        uiPanel.style.pointerEvents = opacity < 0.2 ? "none" : "auto";
+    }
+
+    if (instructionsPanel) {
+        const opacity = getPanelVisibility(instructionsPanel);
+        instructionsPanel.style.opacity = opacity;
+        instructionsPanel.style.pointerEvents = opacity < 0.2 ? "none" : "auto";
+    }
+}
+
+function createParticles(x, y, count = 5, color = "#ffff00") {
+  const parts = [];
+  for (let i = 0; i < count; i++) {
+    parts.push({
+      x: x + (Math.random() - 0.5) * 20,
+      y: y + (Math.random() - 0.5) * 20,
+      vx: (Math.random() - 0.5) * 4,
+      vy: (Math.random() - 0.5) * 4,
+      life: 30,
+      color: color
+    });
+  }
+  return parts;
+}
+
+function updateParticles(particles) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles(ctx, particles) {
+  particles.forEach(p => {
+    const alpha = p.life / 30;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function createStars(canvas) {
+  const stars = [];
+  for (let i = 0; i < 100; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      speed: Math.random() * 0.5 + 0.1,
+      size: Math.random() * 2 + 1
+    });
+  }
+  return stars;
+}
+
+function updateStars(stars, canvas) {
+  stars.forEach(s => {
+    s.x -= s.speed;
+    if (s.x < 0) {
+      s.x = canvas.width;
+      s.y = Math.random() * canvas.height;
+    }
+  });
+}
+
+function drawStars(ctx, stars) {
+  ctx.fillStyle = "#ffffff";
+  stars.forEach(s => {
+    ctx.globalAlpha = Math.random() * 0.5 + 0.5;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
 function updatePowerUps() {
     for (let i = powerUps.length - 1; i >= 0; i--) {
         const p = powerUps[i];
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
-            const amount = Math.floor(Math.random() * 16) + 15;
-            if (p.type === "explosive") explosiveAmmo += amount;
-            else piercingAmmo += amount;
+            if (p.type === "explosive") {
+                explosiveAmmo += Math.floor(Math.random() * 16) + 15;
+            } else if (p.type === "piercing") {
+                piercingAmmo += Math.floor(Math.random() * 16) + 15;
+            } else if (p.type === "shield") {
+                player.shieldTime = Math.min(player.shieldTime + 360, shieldDuration);
+            } else if (p.type === "health") {
+                player.health = Math.min(player.health + 25, 100);
+            }
             powerUps.splice(i, 1);
         }
     }
@@ -100,7 +283,11 @@ function updatePowerUps() {
 
 function drawPowerUps(ctx, powerUps) {
     powerUps.forEach(p => {
-        ctx.fillStyle = p.type === "explosive" ? "#ff4444" : "#44aaff";
+        if (p.type === "explosive") ctx.fillStyle = "#ff4444";
+        else if (p.type === "piercing") ctx.fillStyle = "#44aaff";
+        else if (p.type === "shield") ctx.fillStyle = "#88ff88";
+        else if (p.type === "health") ctx.fillStyle = "#00ff00";
+
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
@@ -113,12 +300,38 @@ function drawUI() {
     document.getElementById("weapon").textContent = currentWeapon;
     document.getElementById("explosive").textContent = explosiveAmmo;
     document.getElementById("piercing").textContent = piercingAmmo;
+    document.getElementById("shield").textContent = Math.ceil((player.shieldTime || 0) / 60);
+    document.getElementById("dash").textContent = player.dashCooldown > 0 ? Math.ceil(player.dashCooldown / 60) : "Ready";
 }
 
 function triggerGameOver() {
     state.gameOver = true;
     document.getElementById("finalScore").textContent = state.score;
     document.getElementById("gameOver").style.display = "flex";
+}
+
+function drawBossBar() {
+    const boss = enemies.find(e => e.type === "boss");
+    if (!boss) return;
+
+    const barWidth = 330;
+    const barHeight = 14;
+    const x = (canvas.width - barWidth) / 2;
+    const y = 18;
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(x - 3, y - 3, barWidth + 6, barHeight + 6);
+
+    ctx.fillStyle = "#ff4f9f";
+    ctx.fillRect(x, y, barWidth * (boss.hp / boss.maxHp), barHeight);
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, barWidth, barHeight);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "14px Arial";
+    ctx.fillText("BOSS HEALTH", x, y - 6);
 }
 
 function updateEnemyBullets() {
@@ -134,7 +347,9 @@ function updateEnemyBullets() {
 
         // Osuma pelaajaan
         if (Math.hypot(b.x - player.x, b.y - player.y) < player.size + b.size) {
-            player.health -= 1;
+            if (player.shieldTime <= 0) {
+                player.health -= 1;
+            }
             enemyBullets.splice(i, 1);
         }
     }
@@ -155,7 +370,10 @@ function resetGame() {
     enemies = [];
     enemyBullets = [];
     powerUps = [];
-    state = { score: 0, gameOver: false };
+    particles = [];
+    stars = createStars(canvas);
+    shake = 0;
+    state = { score: 0, gameOver: false, bossSpawned: false, bossActive: false, bossCount: 0 };
     weaponIndex = 0;
     explosiveAmmo = 0;
     piercingAmmo = 0;
@@ -185,15 +403,16 @@ setInterval(() => {
     if (gameStarted && !state.gameOver) {
         spawnEnemy(canvas, enemies, state, difficulty);
     }
-}, 800);
+}, 1800);
 
 setInterval(() => {
     if (gameStarted && !state.gameOver) {
+        const r = Math.random();
         powerUps.push({
             x: Math.random() * (canvas.width - 40) + 20,
             y: Math.random() * (canvas.height - 40) + 20,
             size: 12,
-            type: Math.random() < 0.5 ? "piercing" : "explosive"
+            type: r < 0.25 ? "piercing" : r < 0.5 ? "explosive" : r < 0.75 ? "shield" : "health"
         });
     }
-}, 8500);
+}, 15000);
